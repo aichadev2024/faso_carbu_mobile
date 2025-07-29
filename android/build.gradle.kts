@@ -1,4 +1,11 @@
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
+import org.gradle.api.tasks.Delete
+import org.gradle.api.file.Directory
+
+// 🔥 Ajout du plugin Google Services (Firebase)
+plugins {
+    id("com.google.gms.google-services") version "4.3.15" apply false
+}
 
 allprojects {
     repositories {
@@ -10,7 +17,7 @@ allprojects {
 // 🔧 Configurer Kotlin pour utiliser Java 21
 plugins.withId("org.jetbrains.kotlin.android") {
     extensions.configure<KotlinJvmProjectExtension>("kotlin") {
-        jvmToolchain(21) // 🔥 C’est ça qui corrige le problème
+        jvmToolchain(21)
     }
 }
 

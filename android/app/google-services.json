@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1021658249609",
+    "project_id": "fasocarbu",
+    "storage_bucket": "fasocarbu.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1021658249609:android:7ccd2c5d155b6166fc4958",
+        "android_client_info": {
+          "package_name": "com.example.faso_carbu_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDyvrxLc8fM1YgTU3V5e31Qc8tXOjMF6uQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1021658249609:android:24080b0d9083ee76fc4958",
+        "android_client_info": {
+          "package_name": "com.fasocarbu.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDyvrxLc8fM1YgTU3V5e31Qc8tXOjMF6uQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,26 +1,29 @@
 name: faso_carbu_mobile
-description: "A new Flutter project."
-
+description: "Application mobile de gestion de tickets carburant."
 environment:
   sdk: '>=3.8.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  uuid: ^4.0.0
-  connectivity_plus: ^5.0.2
   cupertino_icons: ^1.0.8
+  uuid: ^4.4.0
+  connectivity_plus: ^6.1.4
+  provider: ^6.1.2
   shared_preferences: ^2.2.2
-  http: ^0.13.6
-  mobile_scanner: ^3.5.2
-  charts_flutter: ^0.12.0
-  sqflite: ^2.2.8+4
-  path: ^1.8.3
+  logger: ^2.1.0
+  http: ^1.4.0
+  mobile_scanner: ^7.0.1
+  fl_chart: ^1.0.0 # Remplace charts_flutter
+  sqflite: ^2.3.0
+  path: ^1.9.0
+  firebase_core: ^4.0.0
+  firebase_messaging: ^16.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true

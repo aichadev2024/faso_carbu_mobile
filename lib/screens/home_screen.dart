@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:faso_carbu_mobile/services/api_service.dart';
+import 'package:logger/logger.dart';
 
-class HomeScreen extends StatelessWidget {
+
+var logger = Logger();
+
+class HomeScreen extends StatefulWidget {
   final String userEmail;
   final String userRole;
   final String token;
@@ -16,18 +22,27 @@ class HomeScreen extends StatelessWidget {
     required this.prenom,
   });
 
-  void navigate(BuildContext context, String routeName) {
-    Navigator.pushNamed(
-      context,
-      routeName,
-      arguments: {
-        'userEmail': userEmail,
-        'userRole': userRole,
-        'token': token,
-        'nom': nom,
-        'prenom': prenom,
-      },
-    );
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String? userId;
+
+  @override
+  void initState() {
+    super.initState();
+    loadUserId();
+    ApiService.syncCarburants();
+  }
+
+
+  Future<void> loadUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userId = prefs.getString('userId');
+      logger.i("🧾 userId depuis SharedPreferences: $userId");
+    });
   }
 
   String formatRole(String role) {
@@ -43,11 +58,26 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
+  void navigate(BuildContext context, String routeName) {
+    Navigator.pushNamed(
+      context,
+      routeName,
+      arguments: {
+        'userEmail': widget.userEmail,
+        'userRole': widget.userRole,
+        'token': widget.token,
+        'nom': widget.nom,
+        'prenom': widget.prenom,
+        'userId': userId,
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final backgroundGradient = userRole == 'ROLE_CHAUFFEUR'
+    final backgroundGradient = widget.userRole == 'ROLE_CHAUFFEUR'
         ? [Colors.green.shade200, Colors.green.shade50]
-        : userRole == 'ROLE_GESTIONNAIRE'
+        : widget.userRole == 'ROLE_GESTIONNAIRE'
             ? [Colors.blue.shade200, Colors.blue.shade50]
             : [Colors.orange.shade200, Colors.orange.shade50];
 
@@ -55,14 +85,6 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('FasoCarbu - Accueil'),
         backgroundColor: const Color.fromARGB(255, 76, 168, 175),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, '/login');
-            },
-          ),
-        ],
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -100,13 +122,18 @@ class HomeScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            userEmail,
+                            widget.userEmail,
                             style: const TextStyle(fontSize: 16, color: Colors.black87),
                           ),
                           Text(
-                            'Rôle : ${formatRole(userRole)}',
+                            'Rôle : ${formatRole(widget.userRole)}',
                             style: const TextStyle(fontSize: 14, color: Colors.grey),
                           ),
+                          if (userId != null)
+                            Text(
+                              'ID utilisateur : $userId',
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
                         ],
                       ),
                     ),
@@ -120,7 +147,7 @@ class HomeScreen extends StatelessWidget {
             Expanded(
               child: ListView(
                 children: [
-                  if (userRole == 'ROLE_GESTIONNAIRE') ...[
+                  if (widget.userRole == 'ROLE_GESTIONNAIRE') ...[
                     _buildTile(
                       icon: Icons.qr_code,
                       label: 'Valider les demandes',
@@ -132,7 +159,7 @@ class HomeScreen extends StatelessWidget {
                       onTap: () => navigate(context, '/stats'),
                     ),
                   ],
-                  if (userRole == 'ROLE_CHAUFFEUR') ...[
+                  if (widget.userRole == 'ROLE_CHAUFFEUR') ...[
                     _buildTile(
                       icon: Icons.request_page,
                       label: 'Demander un ticket',
@@ -143,8 +170,14 @@ class HomeScreen extends StatelessWidget {
                       label: 'Historique des tickets',
                       onTap: () => navigate(context, '/ticket-list'),
                     ),
+                    _buildTile(
+                      icon: Icons.offline_pin,
+                      label:'Demandes locales',
+                      onTap:()=> navigate(context,'/local-requests',)
+                    ),
+                    
                   ],
-                  if (userRole == 'ROLE_AGENT_STATION') ...[
+                  if (widget.userRole == 'ROLE_AGENT_STATION') ...[
                     _buildTile(
                       icon: Icons.qr_code_scanner,
                       label: 'Scanner un QR Code',
@@ -156,13 +189,12 @@ class HomeScreen extends StatelessWidget {
                       onTap: () => navigate(context, '/ticket-list'),
                     ),
                   ],
-
-                  // ✅ Profil visible pour tous
                   _buildTile(
-                    icon: Icons.person,
-                    label: 'Voir mon profil',
-                    onTap: () => navigate(context, '/profil'),
+                    icon: Icons.local_gas_station,
+                    label: 'Voir les Carburants',
+                    onTap: () => navigate(context, '/carburants'),
                   ),
+
                 ],
               ),
             ),
@@ -172,7 +204,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // 🔘 Widget pour afficher chaque tuile de menu
   Widget _buildTile({
     required IconData icon,
     required String label,

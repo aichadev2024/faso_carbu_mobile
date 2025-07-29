@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:faso_carbu_mobile/db/database_helper.dart';
+import 'package:http/http.dart' as http;
+import '../db/database_helper.dart';
+import '../models/user_model.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -22,6 +25,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _error;
 
   Future<void> _register() async {
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() {
       _loading = true;
       _error = null;
@@ -32,18 +37,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
-
-    if (nom.isEmpty ||
-        prenom.isEmpty ||
-        email.isEmpty ||
-        password.isEmpty ||
-        confirmPassword.isEmpty) {
-      setState(() {
-        _error = "Veuillez remplir tous les champs";
-        _loading = false;
-      });
-      return;
-    }
 
     if (password != confirmPassword) {
       setState(() {
@@ -63,36 +56,51 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return;
       }
 
-      // ✅ Corrigé : ajoute le préfixe "ROLE_" pour cohérence
-      final role = 'ROLE_${_selectedRole.toUpperCase()}';
+      final response = await http.post(
+        Uri.parse('https://faso-carbu-backend-2.onrender.com/api/auth/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'nom': nom,
+          'prenom': prenom,
+          'email': email,
+          'motDePasse': password,
+          'role': _selectedRole.toUpperCase(),
+        }),
+      );
 
-      await DatabaseHelper.instance.saveUser({
-        'email': email,
-        'motDePasse': password,
-        'role': role,
-        'nom': nom,
-        'prenom': prenom,
-        'token': 'offline-token',
-      });
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final user = UserModel(
+          email: email,
+          motDePasse: password,
+          role: _selectedRole.toUpperCase(),
+          nom: nom,
+          prenom: prenom,
+          isSynced: 1,
+        );
 
-    if (context.mounted) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text('✅ Inscription réussie ! Vous pouvez vous connecter.'),
-      backgroundColor: Colors.green,
-      duration: Duration(seconds: 3),
-    ),
-  );
+        await DatabaseHelper.instance.insertUser(user);
 
-  // Attendre un peu avant de rediriger pour que l'utilisateur voie le message
-  await Future.delayed(const Duration(seconds: 2));
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Inscription réussie ! Vous pouvez vous connecter.'),
+            backgroundColor: Colors.green,
+          ),
+        );
 
-  Navigator.pushReplacementNamed(context, '/login');
-}
+        await Future.delayed(const Duration(seconds: 2));
 
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/login');
+        }
+      } else {
+        setState(() {
+          _error = "Erreur serveur (${response.statusCode})";
+        });
+      }
     } catch (e) {
       setState(() {
-        _error = "Erreur lors de l'enregistrement";
+        _error = "Erreur lors de l'enregistrement : $e";
       });
     } finally {
       setState(() {
@@ -104,93 +112,125 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.green[50],
-      appBar: AppBar(
-        title: const Text('Inscription FasoCarbu'),
-        backgroundColor: const Color.fromARGB(255, 39, 197, 237),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
+      backgroundColor: const Color(0xFFE8F5E9),
+      body: Center(
         child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                const Icon(Icons.person_add, size: 80, color: Colors.green),
-                const SizedBox(height: 24),
-                TextFormField(
-                  controller: _nomController,
-                  decoration: const InputDecoration(labelText: 'Nom'),
-                  validator: (value) => value!.isEmpty ? 'Nom requis' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _prenomController,
-                  decoration: const InputDecoration(labelText: 'Prénom'),
-                  validator: (value) => value!.isEmpty ? 'Prénom requis' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(labelText: 'Email'),
-                  validator: (value) => value!.isEmpty ? 'Email requis' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Mot de passe'),
-                  validator: (value) =>
-                      value!.isEmpty ? 'Mot de passe requis' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Confirmer le mot de passe'),
-                  validator: (value) =>
-                      value!.isEmpty ? 'Confirmez le mot de passe' : null,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: _selectedRole,
-                  decoration: const InputDecoration(labelText: 'Rôle'),
-                  items: const [
-                    DropdownMenuItem(
-                        value: 'chauffeur', child: Text('Chauffeur')),
-                    DropdownMenuItem(
-                        value: 'gestionnaire', child: Text('Gestionnaire')),
-                    DropdownMenuItem(
-                        value: 'agent_station', child: Text('Agent de station')),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedRole = value!;
-                    });
-                  },
-                ),
-                const SizedBox(height: 24),
-                if (_error != null)
-                  Text(_error!, style: const TextStyle(color: Colors.red)),
-                _loading
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton.icon(
-                        icon: const Icon(Icons.app_registration),
-                        label: const Text("S'inscrire"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color.fromARGB(255, 103, 221, 234),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 30, vertical: 12),
-                        ),
-                        onPressed: () {
-                          if (_formKey.currentState!.validate()) {
-                            _register();
-                          }
-                        },
+          padding: const EdgeInsets.all(24),
+          child: Card(
+            elevation: 8,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    const Icon(Icons.person_add, size: 64, color: Color.fromARGB(255, 126, 231, 196)),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Créer un compte',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 24),
+                    TextFormField(
+                      controller: _nomController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nom',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person),
                       ),
-              ],
+                      validator: (value) => value!.isEmpty ? 'Nom requis' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _prenomController,
+                      decoration: const InputDecoration(
+                        labelText: 'Prénom',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                      validator: (value) => value!.isEmpty ? 'Prénom requis' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.email),
+                      ),
+                      validator: (value) =>
+                          value!.isEmpty ? 'Email requis' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Mot de passe',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.lock),
+                      ),
+                      validator: (value) =>
+                          value!.isEmpty ? 'Mot de passe requis' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _confirmPasswordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirmer le mot de passe',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.lock_outline),
+                      ),
+                      validator: (value) =>
+                          value!.isEmpty ? 'Confirmation requise' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _selectedRole,
+                      decoration: const InputDecoration(
+                        labelText: 'Rôle',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.supervisor_account),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'chauffeur', child: Text('Chauffeur')),
+                        DropdownMenuItem(value: 'gestionnaire', child: Text('Gestionnaire')),
+                        DropdownMenuItem(value: 'agent_station', child: Text('Agent de station')),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedRole = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    if (_error != null)
+                      Text(_error!, style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 16),
+                    _loading
+                        ? const CircularProgressIndicator()
+                        : SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.app_registration),
+                              label: const Text("S'inscrire"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    const Color.fromARGB(255, 84, 192, 165),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 14, horizontal: 20),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: _register,
+                            ),
+                          ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

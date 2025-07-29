@@ -1,144 +1,90 @@
 import 'package:flutter/material.dart';
 import 'package:faso_carbu_mobile/models/demande_ticket.dart';
+import 'package:faso_carbu_mobile/db/database_helper.dart';
 
-class ValidationScreen extends StatefulWidget {
-  final String token;
-  final DemandeTicket demande;
-
-  const ValidationScreen({
-    super.key,
-    required this.token,
-    required this.demande,
-  });
+class HistoriqueValidationScreen extends StatefulWidget {
+  const HistoriqueValidationScreen({super.key});
 
   @override
-  State<ValidationScreen> createState() => _ValidationScreenState();
+  State<HistoriqueValidationScreen> createState() => _HistoriqueValidationScreenState();
 }
 
-class _ValidationScreenState extends State<ValidationScreen> {
-  final TextEditingController _commentController = TextEditingController();
-
-  bool _isProcessing = false;
-
-  Future<void> _validerDemande() async {
-    setState(() {
-      _isProcessing = true;
-    });
-
-    // Simule un appel API pour valider la demande
-    await Future.delayed(const Duration(seconds: 1));
-
-    setState(() {
-      widget.demande.statut = 'Validée';
-      widget.demande.commentaire = _commentController.text;
-      _isProcessing = false;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Demande validée avec succès')),
-    );
-
-    Navigator.of(context).pop(true); // Retourne true pour indiquer la modif
-  }
-
-  Future<void> _refuserDemande() async {
-    setState(() {
-      _isProcessing = true;
-    });
-
-    // Simule un appel API pour refuser la demande
-    await Future.delayed(const Duration(seconds: 1));
-
-    setState(() {
-      widget.demande.statut = 'Refusée';
-      widget.demande.commentaire = _commentController.text;
-      _isProcessing = false;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Demande refusée')),
-    );
-
-    Navigator.of(context).pop(true);
-  }
+class _HistoriqueValidationScreenState extends State<HistoriqueValidationScreen> {
+  List<DemandeTicket> _demandes = [];
 
   @override
-  void dispose() {
-    _commentController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadDemandes();
+  }
+
+  Future<void> _loadDemandes() async {
+    final demandes = await DatabaseHelper.instance.getAllDemandes();
+    setState(() {
+      _demandes = demandes.where((d) => d.statut != 'en_attente').toList();
+    });
+  }
+
+  String _getStatutText(String statut) {
+    switch (statut.toLowerCase()) {
+      case 'acceptee':
+        return 'Acceptée';
+      case 'rejetee':
+        return 'Rejetée';
+      default:
+        return statut;
+    }
+  }
+
+  Color _getStatutColor(String statut) {
+    switch (statut.toLowerCase()) {
+      case 'acceptee':
+        return Colors.green;
+      case 'rejetee':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final demande = widget.demande;
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Validation de la demande'),
+        title: const Text("Historique des validations"),
+        backgroundColor: Colors.teal,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Demandeur : ${demande.demandeur}', style: const TextStyle(fontSize: 18)),
-            const SizedBox(height: 8),
-            Text('Station : ${demande.station}', style: const TextStyle(fontSize: 18)),
-            const SizedBox(height: 8),
-           Text(
-               'Date : ${DateTime.parse(demande.dateDemande).toLocal().toString().split(" ")[0]}',
-               ),
-
-            const SizedBox(height: 8),
-            Text('Quantité demandée : ${demande.quantite} L', style: const TextStyle(fontSize: 18)),
-            const SizedBox(height: 8),
-            Text('Statut : ${demande.statut}', style: const TextStyle(fontSize: 18)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _commentController,
-              decoration: const InputDecoration(
-                labelText: 'Commentaires / Motif (optionnel)',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
+      body: _demandes.isEmpty
+          ? const Center(child: Text("Aucune demande validée."))
+          : ListView.builder(
+              itemCount: _demandes.length,
+              itemBuilder: (context, index) {
+                final demande = _demandes[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: ListTile(
+                    leading: Icon(Icons.local_gas_station, color: _getStatutColor(demande.statut)),
+                    title: Text("🛢 ${demande.stationNom} (${demande.stationVille})"),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("📍 Adresse : ${demande.stationAdresse}"),
+                        Text("⛽ Quantité : ${demande.quantite} L"),
+                        Text("📅 Date : ${demande.dateDemande}"),
+                        Text("🚗 Véhicule : ${demande.vehiculeImmatriculation}"),
+                      ],
+                    ),
+                    trailing: Text(
+                      _getStatutText(demande.statut),
+                      style: TextStyle(
+                        color: _getStatutColor(demande.statut),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-            const SizedBox(height: 20),
-            if (_isProcessing)
-              const Center(child: CircularProgressIndicator())
-            else if (demande.statut == 'En attente')
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  ElevatedButton(
-                    onPressed: _validerDemande,
-                    child: const Text('Valider'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color.fromARGB(255, 23, 194, 250),
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: _refuserDemande,
-                    child: const Text('Refuser'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                    ),
-                  ),
-                ],
-              )
-            else
-              Center(
-                child: Text(
-                  'Demande déjà ${demande.statut}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: demande.statut == 'Validée' ? Colors.green : Colors.red,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
     );
   }
 }
