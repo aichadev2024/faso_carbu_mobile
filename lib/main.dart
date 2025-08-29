@@ -95,7 +95,14 @@ class FasoCarbuApp extends StatelessWidget {
             return _errorRoute();
 
           case '/scan-qr':
-            return MaterialPageRoute(builder: (_) => const ScanQrScreen());
+            final token = args?['token'];
+            final userId = args?['userId'];
+            if (token is String && userId is String) {
+              return MaterialPageRoute(
+                builder: (_) => ScanQrScreen(token: token, userId: userId),
+              );
+            }
+            return _errorRoute();
 
           case '/login':
             return MaterialPageRoute(builder: (_) => const LoginScreen());
