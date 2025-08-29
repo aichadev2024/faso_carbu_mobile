@@ -33,43 +33,83 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const Text('Mes notifications'),
-        backgroundColor: const Color.fromARGB(255, 76, 168, 175),
+        title: const Text(
+          'Mes Notifications 🔔',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.red.shade700,
+        elevation: 2,
       ),
       body: notifications.isEmpty
-          ? const Center(child: Text("🔔 Aucune notification"))
+          ? const Center(
+              child: Text(
+                "Aucune notification pour l’instant 😊",
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            )
           : ListView.builder(
+              padding: const EdgeInsets.all(12),
               itemCount: notifications.length,
               itemBuilder: (context, index) {
                 final notif = notifications[index];
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   child: ListTile(
-                    leading: Icon(
-                      notif.lu == 1 ? Icons.notifications_none : Icons.notifications_active,
-                      color: notif.lu == 1 ? Colors.grey : Colors.green,
+                    leading: CircleAvatar(
+                      radius: 26,
+                      backgroundColor: notif.lu == 1
+                          ? Colors.grey.shade300
+                          : Colors.red.shade700,
+                      child: Icon(
+                        notif.lu == 1
+                            ? Icons.notifications_none
+                            : Icons.notifications_active,
+                        color: Colors.white,
+                      ),
                     ),
                     title: Text(
                       notif.titre,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(notif.message),
                         const SizedBox(height: 4),
                         Text(
-                          '📅 ${notif.date}',
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          notif.message,
+                          style: const TextStyle(color: Colors.black87),
                         ),
-                        if (notif.lu == 0)
-                          TextButton(
-                            onPressed: () => _marquerCommeLu(notif.id!),
-                            child: const Text('Marquer comme lu'),
-                          ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '📅 ${notif.date}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            if (notif.lu == 0)
+                              TextButton(
+                                onPressed: () => _marquerCommeLu(notif.id!),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.red.shade700,
+                                ),
+                                child: const Text("Marquer comme lu"),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ),

@@ -47,6 +47,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
         return 'Gestionnaire';
       case 'ROLE_AGENT_STATION':
         return 'Agent de station';
+      case 'ROLE_ADMIN_STATION':
+        return 'Admin de station';
       default:
         return role;
     }
@@ -57,91 +59,90 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const Text('Mon Profil'),
+        title: const Text('Mon Profil 👤'),
         centerTitle: true,
-        backgroundColor: const Color.fromARGB(255, 76, 175, 165),
-        elevation: 4,
+        backgroundColor: Colors.red.shade700,
+        elevation: 2,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
         child: Column(
           children: [
+            // 🔹 Avatar
             Stack(
               alignment: Alignment.bottomRight,
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: CircleAvatar(
-                    radius: 65,
-                    backgroundColor: Colors.white,
-                    backgroundImage: _profileImage != null
-                        ? FileImage(_profileImage!)
-                        : const AssetImage('assets/images/default_avatar.png')
-                              as ImageProvider,
-                  ),
+                CircleAvatar(
+                  radius: 65,
+                  backgroundColor: Colors.red.shade100,
+                  backgroundImage: _profileImage != null
+                      ? FileImage(_profileImage!)
+                      : const AssetImage('assets/images/default_avatar.png')
+                            as ImageProvider,
                 ),
                 InkWell(
                   onTap: _pickImage,
                   borderRadius: BorderRadius.circular(30),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Colors.red.shade700,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+                          color: Colors.black26,
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
                         ),
                       ],
                     ),
                     padding: const EdgeInsets.all(8),
-                    child: Icon(
+                    child: const Icon(
                       Icons.camera_alt,
                       size: 22,
-                      color: Colors.grey.shade700,
+                      color: Colors.white,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 35),
+            const SizedBox(height: 30),
+
+            // 🔹 Infos utilisateur
             Card(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
-              elevation: 8,
-              shadowColor: Colors.teal.withOpacity(0.3),
+              elevation: 5,
+              shadowColor: Colors.black12,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 30,
+                  horizontal: 20,
+                  vertical: 25,
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildInfoRow("👤 Nom", widget.nom),
-                    const Divider(height: 30, thickness: 1, color: Colors.grey),
-                    _buildInfoRow("👤 Prénom", widget.prenom),
-                    const Divider(height: 30, thickness: 1, color: Colors.grey),
-                    _buildInfoRow("📧 Email", widget.userEmail),
-                    const Divider(height: 30, thickness: 1, color: Colors.grey),
-                    _buildInfoRow("🛡 Rôle", _formatRole(widget.userRole)),
+                    _buildInfoRow(Icons.person, "Nom", widget.nom),
+                    const Divider(),
+                    _buildInfoRow(Icons.badge, "Prénom", widget.prenom),
+                    const Divider(),
+                    _buildInfoRow(Icons.email, "Email", widget.userEmail),
+                    const Divider(),
+                    _buildInfoRow(
+                      Icons.verified_user,
+                      "Rôle",
+                      _formatRole(widget.userRole),
+                    ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 40),
-            ElevatedButton.icon(
+
+            // 🔹 Boutons
+            _buildButton(
+              label: "Changer le mot de passe",
+              icon: Icons.lock_reset,
+              color: Colors.red.shade700,
               onPressed: () {
                 Navigator.push(
                   context,
@@ -150,42 +151,13 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   ),
                 );
               },
-              icon: const Icon(Icons.lock_reset),
-              label: const Text(
-                "Changer le mot de passe",
-                style: TextStyle(fontSize: 17),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 40,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                elevation: 5,
-              ),
             ),
             const SizedBox(height: 20),
-            ElevatedButton.icon(
+            _buildButton(
+              label: "Se déconnecter",
+              icon: Icons.logout,
+              color: Colors.grey.shade800,
               onPressed: widget.onLogout,
-              icon: const Icon(Icons.logout),
-              label: const Text(
-                "Se déconnecter",
-                style: TextStyle(fontSize: 17),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color.fromARGB(255, 216, 118, 72),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 40,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                elevation: 5,
-              ),
             ),
           ],
         ),
@@ -193,27 +165,44 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Text(
-            "$label : ",
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 17,
-              color: Colors.black87,
-            ),
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.red.shade700),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            "$label : $value",
+            style: const TextStyle(fontSize: 16, color: Colors.black87),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 17, color: Colors.black54),
-              overflow: TextOverflow.ellipsis,
-            ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, color: Colors.white),
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
+          elevation: 3,
+        ),
       ),
     );
   }

@@ -128,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'token': widget.token,
         'nom': widget.nom,
         'prenom': widget.prenom,
-        'userId': userId,
+        'adminStationId': userId,
       },
     );
   }
@@ -136,103 +136,123 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        title: const Text("FasoCarbu"),
-        backgroundColor: Colors.red.shade700,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, '/login');
-            },
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.red.shade700, Colors.red.shade100, Colors.white],
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // 🔹 Remplacé l’image par une icône
-            Container(
-              margin: const EdgeInsets.all(12),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 8,
-                    spreadRadius: 2,
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                // 🔹 Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-                ],
-              ),
-              child: Icon(
-                Icons.local_gas_station,
-                size: 80,
-                color: Colors.red.shade700,
-              ),
-            ),
-
-            // 🔹 Bienvenue + profil
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: _pickImage,
-                    child: CircleAvatar(
-                      radius: 30,
-                      backgroundImage: _profileImage != null
-                          ? FileImage(_profileImage!)
-                          : null,
-                      backgroundColor: Colors.red.shade700,
-                      child: _profileImage == null
-                          ? const Icon(
-                              Icons.person,
-                              color: Colors.white,
-                              size: 30,
-                            )
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        "Bienvenue ${widget.nom} 👋",
-                        style: const TextStyle(
-                          fontSize: 16,
+                      const Text(
+                        "FasoCarbu",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        formatRole(widget.userRole),
-                        style: const TextStyle(color: Colors.grey),
+                      IconButton(
+                        icon: const Icon(Icons.logout, color: Colors.white),
+                        onPressed: () {
+                          Navigator.pushReplacementNamed(context, '/login');
+                        },
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
+                ),
 
-            const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
-            // 🔹 Fonctionnalités en grille
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 3,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                children: _buildTilesForRole(context),
-              ),
+                // 🔹 Carte profil
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: _pickImage,
+                        child: CircleAvatar(
+                          radius: 35,
+                          backgroundImage: _profileImage != null
+                              ? FileImage(_profileImage!)
+                              : null,
+                          backgroundColor: Colors.red.shade700,
+                          child: _profileImage == null
+                              ? const Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 30,
+                                )
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Bienvenue ${widget.nom} 👋",
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            formatRole(widget.userRole),
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // 🔹 Grille
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    children: _buildTilesForRole(context),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -282,44 +302,43 @@ class _HomeScreenState extends State<HomeScreen> {
       ]);
     }
 
-    return tiles
-        .map(
-          (tile) => GestureDetector(
-            onTap: () => navigate(context, tile['route']),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 6,
-                    spreadRadius: 1,
-                  ),
-                ],
+    return tiles.map((tile) {
+      return GestureDetector(
+        onTap: () => navigate(context, tile['route']),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.red.shade100,
+                blurRadius: 12,
+                spreadRadius: 2,
+                offset: const Offset(0, 6),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.red.shade700,
-                    radius: 28,
-                    child: Icon(tile['icon'], color: Colors.white, size: 28),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    tile['label'],
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
-        )
-        .toList();
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                backgroundColor: Colors.red.shade700,
+                radius: 30,
+                child: Icon(tile['icon'], color: Colors.white, size: 30),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                tile['label'],
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
   }
 }

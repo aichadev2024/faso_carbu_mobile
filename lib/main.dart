@@ -9,15 +9,11 @@ import 'package:faso_carbu_mobile/screens/main_screen.dart';
 import 'package:faso_carbu_mobile/screens/scan_qr_screen.dart';
 import 'package:faso_carbu_mobile/screens/profil_screen.dart';
 import 'package:faso_carbu_mobile/screens/notification_screen.dart';
-
-// 🔹 Ajouts
 import 'package:faso_carbu_mobile/screens/ticket_screen.dart';
 import 'package:faso_carbu_mobile/screens/ticket_history_screen.dart';
-
-// 🔹 Ajouts Carburants
 import 'package:faso_carbu_mobile/screens/carburants_list_screen.dart';
 import 'package:faso_carbu_mobile/screens/creer_carburant_screen.dart';
-
+import 'package:faso_carbu_mobile/screens/ticket-list-agent.dart';
 import 'package:logger/logger.dart';
 
 var logger = Logger();
@@ -206,6 +202,16 @@ class FasoCarbuApp extends StatelessWidget {
             if (token is String) {
               return MaterialPageRoute(
                 builder: (_) => TicketHistoryScreen(token: token),
+              );
+            }
+            return _errorRoute();
+          case '/ticket-list-agent':
+            final token = args?['token'];
+            final agentId = args?['userId'];
+            if (token is String && agentId is String) {
+              return MaterialPageRoute(
+                builder: (_) =>
+                    TicketListAgentScreen(token: token, agentId: agentId),
               );
             }
             return _errorRoute();
