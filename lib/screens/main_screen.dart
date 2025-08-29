@@ -27,7 +27,6 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   late List<Widget> _screens;
-  late List<String> _titles;
 
   @override
   void initState() {
@@ -50,8 +49,6 @@ class _MainScreenState extends State<MainScreen> {
       ),
       const NotificationScreen(),
     ];
-
-    _titles = ["Accueil", "Profil", "Notifications"];
   }
 
   void _handleLogout() {
@@ -65,18 +62,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: Text(
-          _titles[_selectedIndex],
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: Colors.red.shade700,
-        centerTitle: true,
-      ),
+      // 🔹 On enlève l’AppBar ici
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         child: _screens[_selectedIndex],
