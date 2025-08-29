@@ -1,18 +1,14 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:faso_carbu_mobile/models/demande_ticket.dart';
 import 'package:faso_carbu_mobile/models/ticket.dart';
 import 'package:faso_carbu_mobile/models/notification_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:faso_carbu_mobile/models/user_model.dart';
 import 'package:faso_carbu_mobile/models/carburant.dart';
-import 'package:faso_carbu_mobile/models/vehicule.dart';
-import 'package:faso_carbu_mobile/models/station.dart';
 import 'dart:convert';
 import 'package:logger/logger.dart';
 
 var logger = Logger();
-
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -20,7 +16,8 @@ class DatabaseHelper {
 
   DatabaseHelper._init();
 
-  static const int _databaseVersion = 8; // Incrémenté pour appliquer la nouvelle colonne
+  static const int _databaseVersion =
+      8; // Incrémenté pour appliquer la nouvelle colonne
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -89,15 +86,6 @@ class DatabaseHelper {
   )
 ''');
 
-await db.execute('''
-  CREATE TABLE station (
-    id TEXT PRIMARY KEY,
-    nom TEXT,
-    ville TEXT,
-    adresse TEXT
-  )
-''');
-
     await db.execute('''
       CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,14 +106,14 @@ await db.execute('''
         prix REAL NOT NULL
   )
 ''');
-
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 4) {
       await db.execute('ALTER TABLE users ADD COLUMN backend_id TEXT');
-      await db.execute('ALTER TABLE users ADD COLUMN isSynced INTEGER DEFAULT 0');
-      
+      await db.execute(
+        'ALTER TABLE users ADD COLUMN isSynced INTEGER DEFAULT 0',
+      );
     }
 
     if (oldVersion < 7) {
@@ -135,70 +123,27 @@ await db.execute('''
       await db.execute('ALTER TABLE demandes ADD COLUMN vehiculeId TEXT');
       await db.execute('ALTER TABLE demandes ADD COLUMN validateurId TEXT');
       await db.execute('ALTER TABLE demandes ADD COLUMN dateValidation TEXT');
-}
-
-  }
-
-  // =============== DEMANDES ===============
-  Future<void> insertDemande(Map<String, dynamic> demande) async {
-    final db = await instance.database;
-    await db.insert('demandes', demande, conflictAlgorithm: ConflictAlgorithm.replace);
-  }
-
-  Future<List<DemandeTicket>> getAllDemandes() async {
-    final db = await instance.database;
-    final result = await db.query('demandes');
-    return result.map((json) => DemandeTicket.fromMap(json)).toList();
-  }
-
-  Future<void> updateDemande(DemandeTicket demande) async {
-    final db = await instance.database;
-    await db.update(
-      'demandes',
-      demande.toMap(),
-      where: 'id = ?',
-      whereArgs: [demande.id],
-    );
-  }
-
-  Future<void> deleteDemande(String id) async {
-    final db = await instance.database;
-    await db.delete('demandes', where: 'id = ?', whereArgs: [id]);
-  }
-
-  Future<List<DemandeTicket>> getLocalDemandes() async {
-    final db = await instance.database;
-    final result = await db.query('demandes', where: 'statut = ?', whereArgs: ['en_attente']);
-    return result.map((json) => DemandeTicket.fromMap(json)).toList();
-  }
-
-  Future<bool> demandeExiste(String? id) async {
-    if (id == null) return false;
-    final db = await instance.database;
-    final result = await db.query('demandes', where: 'id = ?', whereArgs: [id]);
-    return result.isNotEmpty;
-  }
-
-  Future<void> marquerDemandeCommeSynced(String id) async {
-    final db = await instance.database;
-    await db.update(
-      'demandes',
-      {'statut': 'synced'},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    }
   }
 
   // =============== TICKETS ===============
   Future<void> insertTicket(Map<String, dynamic> ticket) async {
     final db = await instance.database;
-    await db.insert('tickets', ticket, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'tickets',
+      ticket,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<void> saveTicketsOffline(List<Map<String, dynamic>> tickets) async {
     final db = await instance.database;
     for (var ticket in tickets) {
-      await db.insert('tickets', ticket, conflictAlgorithm: ConflictAlgorithm.replace);
+      await db.insert(
+        'tickets',
+        ticket,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     }
   }
 
@@ -210,13 +155,22 @@ await db.execute('''
 
   Future<List<Ticket>> getUnsyncedTickets() async {
     final db = await instance.database;
-    final result = await db.query('tickets', where: 'statut = ?', whereArgs: ['local']);
+    final result = await db.query(
+      'tickets',
+      where: 'statut = ?',
+      whereArgs: ['local'],
+    );
     return result.map((json) => Ticket.fromMap(json)).toList();
   }
 
   Future<void> markTicketAsSynced(String id) async {
     final db = await instance.database;
-    await db.update('tickets', {'statut': 'sync'}, where: 'id = ?', whereArgs: [id]);
+    await db.update(
+      'tickets',
+      {'statut': 'sync'},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<void> deleteTicket(String id) async {
@@ -227,16 +181,27 @@ await db.execute('''
   // =============== USERS ===============
   Future<void> saveUser(UserModel users) async {
     final db = await instance.database;
-    await db.insert('users', users.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'users',
+      users.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<UserModel?> getUser(String email) async {
     final db = await instance.database;
-    final result = await db.query('users', where: 'email = ?', whereArgs: [email]);
+    final result = await db.query(
+      'users',
+      where: 'email = ?',
+      whereArgs: [email],
+    );
     return result.isNotEmpty ? UserModel.fromMap(result.first) : null;
   }
 
-  Future<UserModel?> getUserByEmailAndPassword(String email, String motDePasse) async {
+  Future<UserModel?> getUserByEmailAndPassword(
+    String email,
+    String motDePasse,
+  ) async {
     final db = await instance.database;
     final result = await db.query(
       'users',
@@ -284,7 +249,9 @@ await db.execute('''
           );
           logger.i('✅ Utilisateur synchronisé : ${user.email}');
         } else {
-          logger.e('❌ Erreur serveur pour ${user.email} - Code: ${response.statusCode}');
+          logger.e(
+            '❌ Erreur serveur pour ${user.email} - Code: ${response.statusCode}',
+          );
         }
       } catch (e) {
         logger.e('❌ Erreur réseau pour ${user.email} : $e');
@@ -294,12 +261,7 @@ await db.execute('''
 
   Future<void> markUserAsSynced(int id) async {
     final db = await database;
-    await db.update(
-      'users',
-      {'isSynced': 1},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.update('users', {'isSynced': 1}, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<List<UserModel>> getUnsyncedUsers() async {
@@ -342,7 +304,7 @@ await db.execute('''
             where: 'id = ?',
             whereArgs: [user.id],
           );
-         logger.i('🔁 Ancien utilisateur synchronisé : ${user.email}');
+          logger.i('🔁 Ancien utilisateur synchronisé : ${user.email}');
         } else {
           logger.i('❌ Ancien utilisateur non synchronisé : ${user.email}');
         }
@@ -355,7 +317,11 @@ await db.execute('''
   // =============== NOTIFICATIONS ===============
   Future<void> insertNotification(Map<String, dynamic> notification) async {
     final db = await instance.database;
-    await db.insert('notifications', notification, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'notifications',
+      notification,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<List<NotificationModel>> getAllNotifications() async {
@@ -386,87 +352,47 @@ await db.execute('''
 
   Future<int> countNotificationsNonLues() async {
     final db = await database;
-    final result = await db.rawQuery('SELECT COUNT(*) AS total FROM notifications WHERE lu = 0');
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) AS total FROM notifications WHERE lu = 0',
+    );
     return Sqflite.firstIntValue(result) ?? 0;
   }
+
   Future<void> insertCarburant(Carburant carburant) async {
-  final db = await database;
-  await db.insert(
-    'carburants',
-    carburant.toJson(),
-    conflictAlgorithm: ConflictAlgorithm.replace,
-  );
-}
-Future<List<Carburant>> getAllCarburants() async {
-  final db = await database;
-  final maps = await db.query('carburants');
-  return maps.map((map) => Carburant.fromJson(map)).toList();
-}
-Future<void> clearCarburants() async {
-  final db = await database;
-  await db.delete('carburants');
-}
-Future<void> updateCarburant(Carburant carburant) async {
-  final db = await database;
-  await db.update(
-    'carburants',
-    carburant.toJson(),
-    where: 'id = ?',
-    whereArgs: [carburant.id],
-  );
-}
-// Insert Vehicule
-Future<void> insertVehicule(Vehicule vehicule) async {
-  final db = await database;
-  await db.insert(
-    'vehicule',
-    vehicule.toJson(),
-    conflictAlgorithm: ConflictAlgorithm.replace,
-  );
-}
-
-// Get all Vehicules
-Future<List<Vehicule>> getAllVehicules() async {
-  final db = await database;
-  final List<Map<String, dynamic>> maps = await db.query('vehicule');
-  return maps.map((map) => Vehicule.fromJson(map)).toList();
-}
-
-// Delete Vehicule
-Future<void> deleteVehicule(String id) async {
-  final db = await database;
-  await db.delete('vehicule', where: 'id = ?', whereArgs: [id]);
-}
-// Insert Station
-Future<void> insertStation(Station station) async {
-  final db = await database;
-  await db.insert(
-    'station',
-    station.toJson(),
-    conflictAlgorithm: ConflictAlgorithm.replace,
-  );
-}
-
-// Get all Stations
-Future<List<Station>> getAllStations() async {
-  final db = await database;
-  final List<Map<String, dynamic>> maps = await db.query('station');
-  return maps.map((map) => Station.fromJson(map)).toList();
-}
-
-// Delete Station
-Future<void> deleteStation(String id) async {
-  final db = await database;
-  await db.delete('station', where: 'id = ?', whereArgs: [id]);
-}
-
-
-  // =============== GLOBAL ===============
-  Future<void> clearAll() async {
-    final db = await instance.database;
-    await db.delete('demandes');
-    await db.delete('tickets');
-    await db.delete('users');
+    final db = await database;
+    await db.insert(
+      'carburants',
+      carburant.toJson(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
+  Future<List<Carburant>> getAllCarburants() async {
+    final db = await database;
+    final maps = await db.query('carburants');
+    return maps.map((map) => Carburant.fromJson(map)).toList();
+  }
+
+  Future<void> clearCarburants() async {
+    final db = await database;
+    await db.delete('carburants');
+  }
+
+  Future<void> updateCarburant(Carburant carburant) async {
+    final db = await database;
+    await db.update(
+      'carburants',
+      carburant.toJson(),
+      where: 'id = ?',
+      whereArgs: [carburant.id],
+    );
+  }
+}
+
+// =============== GLOBAL ===============
+Future<void> clearAll() async {
+  final db = await DatabaseHelper.instance.database;
+  await db.delete('demandes');
+  await db.delete('tickets');
+  await db.delete('users');
 }

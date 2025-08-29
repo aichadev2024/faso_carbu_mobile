@@ -32,7 +32,7 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"email": email, "password": password}),
+        body: jsonEncode({"email": email, "motDePasse": password}),
       );
 
       if (response.statusCode == 200) {
@@ -56,7 +56,6 @@ class ApiService {
     }
   }
 
-  
   static Future<List<Ticket>> fetchTicketsOnline() async {
     final token = await getToken();
     final response = await http.get(
@@ -122,13 +121,14 @@ class ApiService {
         );
 
         if (response.statusCode == 200 || response.statusCode == 201) {
-          await DatabaseHelper.instance.markTicketAsSynced(ticket.id.toString());
+          await DatabaseHelper.instance.markTicketAsSynced(
+            ticket.id.toString(),
+          );
         }
       } catch (_) {}
     }
   }
 
-  
   static Future<void> registerUser(UserModel user) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/register'),
@@ -162,7 +162,6 @@ class ApiService {
     }
   }
 
-  
   static Future<void> createDemande(Map<String, dynamic> data) async {
     final token = await getToken();
     final response = await http.post(
@@ -219,30 +218,30 @@ class ApiService {
       throw Exception('Erreur lors du chargement des carburants');
     }
   }
+
   static Future<void> syncCarburants() async {
-  final connectivity = await Connectivity().checkConnectivity();
-  if (connectivity == ConnectivityResult.none) return;
+    final connectivity = await Connectivity().checkConnectivity();
+    if (connectivity == ConnectivityResult.none) return;
 
-  try {
-    final response = await http.get(Uri.parse('$baseUrl/carburants'));
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/carburants'));
 
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      final carburants = data.map((e) => Carburant.fromJson(e)).toList();
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        final carburants = data.map((e) => Carburant.fromJson(e)).toList();
 
-      // Supprimer les anciens carburants
-      await DatabaseHelper.instance.clearCarburants();
+        // Supprimer les anciens carburants
+        await DatabaseHelper.instance.clearCarburants();
 
-      // Insérer les nouveaux carburants
-      for (Carburant carburant in carburants) {
-        await DatabaseHelper.instance.insertCarburant(carburant);
+        // Insérer les nouveaux carburants
+        for (Carburant carburant in carburants) {
+          await DatabaseHelper.instance.insertCarburant(carburant);
+        }
+      } else {
+        throw Exception('Échec de la récupération des carburants');
       }
-    } else {
-      throw Exception('Échec de la récupération des carburants');
+    } catch (e) {
+      logger.e('Erreur de synchronisation carburants : $e');
     }
-  } catch (e) {
-    logger.e('Erreur de synchronisation carburants : $e');
   }
-}
-
 }

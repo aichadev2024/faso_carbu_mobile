@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'home_screen.dart';
 import 'profil_screen.dart';
 import 'notification_screen.dart';
@@ -26,6 +27,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   late List<Widget> _screens;
+  late List<String> _titles;
 
   @override
   void initState() {
@@ -48,6 +50,8 @@ class _MainScreenState extends State<MainScreen> {
       ),
       const NotificationScreen(),
     ];
+
+    _titles = ["Accueil", "Profil", "Notifications"];
   }
 
   void _handleLogout() {
@@ -58,51 +62,82 @@ class _MainScreenState extends State<MainScreen> {
     setState(() => _selectedIndex = index);
   }
 
-  Future<bool> _onWillPop() async {
-    // Afficher une confirmation de déconnexion
-    return await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmer'),
-        content: const Text('Voulez-vous vous déconnecter ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Non'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(true);
-            },
-            child: const Text('Oui'),
-          ),
-        ],
-      ),
-    ) ?? false;
-  }
-
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        final shouldLogout = await _onWillPop();
-        if (shouldLogout) {
-          _handleLogout(); // Déconnecte et revient à /login
-        }
-        return false; // Empêche le retour automatique
-      },
-      child: Scaffold(
-        body: _screens[_selectedIndex],
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          selectedItemColor: Colors.green,
-          onTap: _onItemTapped,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-            BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Notifications'),
-          ],
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: Text(
+          _titles[_selectedIndex],
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
+        backgroundColor: Colors.red.shade700,
+        centerTitle: true,
+      ),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: _screens[_selectedIndex],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        backgroundColor: Colors.black,
+        selectedItemColor: Colors.red.shade700,
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
+        items: [
+          BottomNavigationBarItem(
+            icon: SvgPicture.asset(
+              "assets/icons/home.svg",
+              height: 24,
+              colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.srcIn),
+            ),
+            activeIcon: SvgPicture.asset(
+              "assets/icons/home.svg",
+              height: 28,
+              colorFilter: ColorFilter.mode(
+                Colors.red.shade700,
+                BlendMode.srcIn,
+              ),
+            ),
+            label: "Accueil",
+          ),
+          BottomNavigationBarItem(
+            icon: SvgPicture.asset(
+              "assets/icons/profile.svg",
+              height: 24,
+              colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.srcIn),
+            ),
+            activeIcon: SvgPicture.asset(
+              "assets/icons/profile.svg",
+              height: 28,
+              colorFilter: ColorFilter.mode(
+                Colors.red.shade700,
+                BlendMode.srcIn,
+              ),
+            ),
+            label: "Profil",
+          ),
+          BottomNavigationBarItem(
+            icon: SvgPicture.asset(
+              "assets/icons/notif.svg",
+              height: 24,
+              colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.srcIn),
+            ),
+            activeIcon: SvgPicture.asset(
+              "assets/icons/notif.svg",
+              height: 28,
+              colorFilter: ColorFilter.mode(
+                Colors.red.shade700,
+                BlendMode.srcIn,
+              ),
+            ),
+            label: "Notifications",
+          ),
+        ],
       ),
     );
   }

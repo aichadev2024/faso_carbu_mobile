@@ -1,8 +1,13 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:faso_carbu_mobile/services/api_service.dart';
 import 'package:logger/logger.dart';
-
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
 
 var logger = Logger();
 
@@ -28,27 +33,82 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? userId;
+  File? _profileImage;
 
   @override
   void initState() {
     super.initState();
     loadUserId();
     ApiService.syncCarburants();
+    _loadProfileImage();
+    envoyerTokenFCMAuBackend();
   }
 
+  Future<void> envoyerTokenFCMAuBackend() async {
+    try {
+      FirebaseMessaging messaging = FirebaseMessaging.instance;
+      String? fcmToken = await messaging.getToken();
+      if (fcmToken != null) {
+        final response = await http.post(
+          Uri.parse(
+            'https://faso-carbu-backend-2.onrender.com/api/utilisateurs/update-token',
+          ),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${widget.token}',
+          },
+          body: jsonEncode({'fcmToken': fcmToken}),
+        );
+        if (response.statusCode == 200) {
+          logger.i("✅ Token FCM envoyé au backend !");
+        } else {
+          logger.e("❌ Erreur en envoyant le token FCM : ${response.body}");
+        }
+      }
+    } catch (e) {
+      logger.e("❌ Exception pendant l’envoi du token FCM : $e");
+    }
+  }
 
   Future<void> loadUserId() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       userId = prefs.getString('userId');
-      logger.i("🧾 userId depuis SharedPreferences: $userId");
     });
+  }
+
+  Future<void> _loadProfileImage() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? imagePath = prefs.getString('profile_image_path');
+    if (imagePath != null && File(imagePath).existsSync()) {
+      setState(() {
+        _profileImage = File(imagePath);
+      });
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      final File imageTemp = File(pickedFile.path);
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName = 'profile.jpg';
+      final savedImage = await imageTemp.copy('${appDir.path}/$fileName');
+
+      setState(() {
+        _profileImage = savedImage;
+      });
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      prefs.setString('profile_image_path', savedImage.path);
+    }
   }
 
   String formatRole(String role) {
     switch (role) {
-      case 'ROLE_GESTIONNAIRE':
-        return 'Gestionnaire';
+      case 'ROLE_ADMIN_STATION':
+        return 'Admin Station';
       case 'ROLE_CHAUFFEUR':
         return 'Chauffeur';
       case 'ROLE_AGENT_STATION':
@@ -75,127 +135,101 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundGradient = widget.userRole == 'ROLE_CHAUFFEUR'
-        ? [Colors.green.shade200, Colors.green.shade50]
-        : widget.userRole == 'ROLE_GESTIONNAIRE'
-            ? [Colors.blue.shade200, Colors.blue.shade50]
-            : [Colors.orange.shade200, Colors.orange.shade50];
-
     return Scaffold(
+      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const Text('FasoCarbu - Accueil'),
-        backgroundColor: const Color.fromARGB(255, 76, 168, 175),
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: backgroundGradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+        title: const Text("FasoCarbu"),
+        backgroundColor: Colors.red.shade700,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/login');
+            },
           ),
-        ),
-        padding: const EdgeInsets.all(16),
+        ],
+      ),
+      body: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              elevation: 4,
-              color: Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: Colors.green[300],
-                      child: const Icon(Icons.person, size: 30, color: Colors.white),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Bienvenue dans FasoCarbu 👋',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.userEmail,
-                            style: const TextStyle(fontSize: 16, color: Colors.black87),
-                          ),
-                          Text(
-                            'Rôle : ${formatRole(widget.userRole)}',
-                            style: const TextStyle(fontSize: 14, color: Colors.grey),
-                          ),
-                          if (userId != null)
-                            Text(
-                              'ID utilisateur : $userId',
-                              style: const TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+            // 🔹 Remplacé l’image par une icône
+            Container(
+              margin: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.local_gas_station,
+                size: 80,
+                color: Colors.red.shade700,
               ),
             ),
 
-            const SizedBox(height: 30),
-
-            Expanded(
-              child: ListView(
+            // 🔹 Bienvenue + profil
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
                 children: [
-                  if (widget.userRole == 'ROLE_GESTIONNAIRE') ...[
-                    _buildTile(
-                      icon: Icons.qr_code,
-                      label: 'Valider les demandes',
-                      onTap: () => navigate(context, '/valider-demandes'),
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: CircleAvatar(
+                      radius: 30,
+                      backgroundImage: _profileImage != null
+                          ? FileImage(_profileImage!)
+                          : null,
+                      backgroundColor: Colors.red.shade700,
+                      child: _profileImage == null
+                          ? const Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: 30,
+                            )
+                          : null,
                     ),
-                    _buildTile(
-                      icon: Icons.bar_chart,
-                      label: 'Statistiques',
-                      onTap: () => navigate(context, '/stats'),
-                    ),
-                  ],
-                  if (widget.userRole == 'ROLE_CHAUFFEUR') ...[
-                    _buildTile(
-                      icon: Icons.request_page,
-                      label: 'Demander un ticket',
-                      onTap: () => navigate(context, '/ticket-request'),
-                    ),
-                    _buildTile(
-                      icon: Icons.list_alt,
-                      label: 'Historique des tickets',
-                      onTap: () => navigate(context, '/ticket-list'),
-                    ),
-                    _buildTile(
-                      icon: Icons.offline_pin,
-                      label:'Demandes locales',
-                      onTap:()=> navigate(context,'/local-requests',)
-                    ),
-                    
-                  ],
-                  if (widget.userRole == 'ROLE_AGENT_STATION') ...[
-                    _buildTile(
-                      icon: Icons.qr_code_scanner,
-                      label: 'Scanner un QR Code',
-                      onTap: () => navigate(context, '/scan-qr'),
-                    ),
-                    _buildTile(
-                      icon: Icons.history,
-                      label: 'Historique des validations',
-                      onTap: () => navigate(context, '/ticket-list'),
-                    ),
-                  ],
-                  _buildTile(
-                    icon: Icons.local_gas_station,
-                    label: 'Voir les Carburants',
-                    onTap: () => navigate(context, '/carburants'),
                   ),
-
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Bienvenue ${widget.nom} 👋",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        formatRole(widget.userRole),
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
                 ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // 🔹 Fonctionnalités en grille
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 3,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                children: _buildTilesForRole(context),
               ),
             ),
           ],
@@ -204,39 +238,88 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildTile({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Card(
-        elevation: 4,
-        margin: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        color: Colors.white,
-        child: SizedBox(
-          height: 120,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 40, color: Colors.green),
-                const SizedBox(height: 10),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+  List<Widget> _buildTilesForRole(BuildContext context) {
+    final List<Map<String, dynamic>> tiles = [];
+
+    if (widget.userRole == 'ROLE_ADMIN_STATION') {
+      tiles.addAll([
+        {
+          'icon': Icons.people,
+          'label': 'Gérer Agents',
+          'route': '/agents-list',
+        },
+        {
+          'icon': Icons.local_gas_station,
+          'label': 'Gérer Carburants',
+          'route': '/carburants-list',
+        },
+      ]);
+    }
+
+    if (widget.userRole == 'ROLE_CHAUFFEUR') {
+      tiles.addAll([
+        {
+          'icon': Icons.confirmation_num,
+          'label': 'Tickets Station',
+          'route': '/ticket',
+        },
+        {
+          'icon': Icons.history_edu,
+          'label': 'Historique Tickets',
+          'route': '/ticket-list',
+        },
+      ]);
+    }
+
+    if (widget.userRole == 'ROLE_AGENT_STATION') {
+      tiles.addAll([
+        {'icon': Icons.qr_code, 'label': 'Scanner QR', 'route': '/scan-qr'},
+        {
+          'icon': Icons.history_edu,
+          'label': 'Historique Tickets',
+          'route': '/ticket-list',
+        },
+      ]);
+    }
+
+    return tiles
+        .map(
+          (tile) => GestureDetector(
+            onTap: () => navigate(context, tile['route']),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 6,
+                    spreadRadius: 1,
                   ),
-                ),
-              ],
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Colors.red.shade700,
+                    radius: 28,
+                    child: Icon(tile['icon'], color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    tile['label'],
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ),
-    );
+        )
+        .toList();
   }
 }
