@@ -119,18 +119,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void navigate(BuildContext context, String routeName) {
-    Navigator.pushNamed(
-      context,
-      routeName,
-      arguments: {
-        'userEmail': widget.userEmail,
-        'userRole': widget.userRole,
-        'token': widget.token,
-        'nom': widget.nom,
-        'prenom': widget.prenom,
-        'adminStationId': userId,
-      },
-    );
+    final Map<String, dynamic> args = {
+      'userEmail': widget.userEmail,
+      'userRole': widget.userRole,
+      'token': widget.token,
+      'nom': widget.nom,
+      'prenom': widget.prenom,
+    };
+
+    if (widget.userRole == 'ROLE_ADMIN_STATION') {
+      args['adminStationId'] = userId;
+    }
+
+    if (widget.userRole == 'ROLE_AGENT_STATION') {
+      args['userId'] = userId;
+    }
+
+    Navigator.pushNamed(context, routeName, arguments: args);
   }
 
   @override
@@ -297,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> {
         {
           'icon': Icons.history_edu,
           'label': 'Historique Tickets',
-          'route': '/ticket-list',
+          'route': '/ticket-list-agent',
         },
       ]);
     }
