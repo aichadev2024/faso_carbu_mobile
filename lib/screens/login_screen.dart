@@ -246,7 +246,7 @@ class _LoginScreenState extends State<LoginScreen>
                           const Icon(
                             Icons.local_gas_station,
                             size: 64,
-                            color: Colors.redAccent,
+                            color: Color.fromARGB(255, 240, 239, 239),
                           ),
                           const SizedBox(height: 16),
                           const Text(
@@ -346,7 +346,9 @@ class _LoginScreenState extends State<LoginScreen>
                             },
                             child: const Text(
                               "Créer un compte",
-                              style: TextStyle(color: Colors.redAccent),
+                              style: TextStyle(
+                                color: Color.fromARGB(255, 239, 238, 238),
+                              ),
                             ),
                           ),
                         ],

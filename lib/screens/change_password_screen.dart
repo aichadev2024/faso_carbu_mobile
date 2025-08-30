@@ -35,7 +35,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
     try {
       final response = await http.put(
-        Uri.parse("https://faso-carbu-backend-2.onrender.com/api/auth/changer-mot-de-passe"), // ✅ À adapter selon ton backend
+        Uri.parse(
+          "https://faso-carbu-backend-2.onrender.com/api/auth/changer-mot-de-passe",
+        ),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.token}',
@@ -46,15 +48,18 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           'nouveauMotDePasse': _nouveauController.text,
         }),
       );
-             logger.i(response.statusCode);
-             logger.i(response.body);
+      logger.i(response.statusCode);
+      logger.i(response.body);
 
       if (response.statusCode == 200) {
         setState(() => _message = "✅ Mot de passe modifié avec succès");
         _ancienController.clear();
         _nouveauController.clear();
       } else {
-        setState(() => _message = "❌ Échec : ${jsonDecode(response.body)['message'] ?? 'Erreur inconnue'}");
+        setState(
+          () => _message =
+              "❌ Échec : ${jsonDecode(response.body)['message'] ?? 'Erreur inconnue'}",
+        );
       }
     } catch (e) {
       setState(() => _message = "❌ Erreur réseau");
@@ -76,15 +81,23 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               TextFormField(
                 controller: _ancienController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: "Ancien mot de passe"),
-                validator: (value) => (value == null || value.length < 4) ? 'Entrer un mot de passe valide' : null,
+                decoration: const InputDecoration(
+                  labelText: "Ancien mot de passe",
+                ),
+                validator: (value) => (value == null || value.length < 4)
+                    ? 'Entrer un mot de passe valide'
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _nouveauController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: "Nouveau mot de passe"),
-                validator: (value) => (value == null || value.length < 4) ? 'Mot de passe trop court' : null,
+                decoration: const InputDecoration(
+                  labelText: "Nouveau mot de passe",
+                ),
+                validator: (value) => (value == null || value.length < 4)
+                    ? 'Mot de passe trop court'
+                    : null,
               ),
               const SizedBox(height: 24),
               _loading
@@ -102,7 +115,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              ]
+              ],
             ],
           ),
         ),
