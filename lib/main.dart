@@ -96,7 +96,7 @@ class FasoCarbuApp extends StatelessWidget {
 
           case '/scan-qr':
             final token = args?['token'];
-            final userId = args?['userId'];
+            final userId = args?['userId']; // agent station
             if (token is String && userId is String) {
               return MaterialPageRoute(
                 builder: (_) => ScanQrScreen(token: token, userId: userId),
@@ -144,25 +144,28 @@ class FasoCarbuApp extends StatelessWidget {
             );
 
           // 🔹 Routes Admin Station
-
           case '/agents-list':
             final token = args?['token'];
-            final userId = args?['userId'];
-            if (token is String && userId is String) {
+            final adminStationId = args?['adminStationId']; // ✅ corrigé
+            if (token is String && adminStationId is String) {
               return MaterialPageRoute(
-                builder: (_) =>
-                    AgentsListScreen(token: token, adminStationId: userId),
+                builder: (_) => AgentsListScreen(
+                  token: token,
+                  adminStationId: adminStationId,
+                ),
               );
             }
             return _errorRoute();
 
           case '/creer-agent_station':
             final token = args?['token'];
-            final userId = args?['userId'];
-            if (token is String && userId is String) {
+            final adminStationId = args?['adminStationId']; // ✅ corrigé
+            if (token is String && adminStationId is String) {
               return MaterialPageRoute(
-                builder: (_) =>
-                    CreerAgentScreen(token: token, adminStationId: userId),
+                builder: (_) => CreerAgentScreen(
+                  token: token,
+                  adminStationId: adminStationId,
+                ),
               );
             }
             return _errorRoute();
@@ -212,6 +215,7 @@ class FasoCarbuApp extends StatelessWidget {
               );
             }
             return _errorRoute();
+
           case '/ticket-list-agent':
             final token = args?['token'];
             final agentId = args?['userId'];
