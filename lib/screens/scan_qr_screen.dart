@@ -32,10 +32,14 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${widget.token}",
         },
-        body: jsonEncode({"qrCode": code, "agentId": widget.userId}),
-      );
+        body: jsonEncode({
+          "codeQr": code, // 🔹 correspond bien au backend
+          "montant": ticketData?['montant'], // 🔹 montant du ticket scanné
+        }),
+      ); // ✅ parenthèse fermée correctement
 
       if (response.statusCode == 200) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("✅ Ticket validé avec succès !"),
@@ -43,6 +47,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
           ),
         );
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -53,6 +58,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("⚠️ Erreur de connexion : $e"),
@@ -61,9 +67,11 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
       );
     }
 
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _onDetect(BarcodeCapture capture) async {
@@ -77,7 +85,6 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
           ticketData = decoded;
         });
 
-        // 🔹 Demander confirmation avant validation
         final confirm = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -112,6 +119,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
           _validerTicket(code);
         }
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("❌ QR invalide : $e"),
