@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:faso_carbu_mobile/db/database_helper.dart';
 import 'package:faso_carbu_mobile/models/user_model.dart';
 import 'package:faso_carbu_mobile/services/api_service.dart';
+import 'package:faso_carbu_mobile/services/notification_service.dart';
+
 import 'package:logger/logger.dart';
 
 var logger = Logger();
@@ -83,6 +85,15 @@ class _LoginScreenState extends State<LoginScreen>
         final nom = data['nom'] ?? '';
         final prenom = data['prenom'] ?? '';
         final userId = data['id'] ?? '';
+
+        logger.i("🆔 ID utilisateur reçu: $userId");
+
+        // 🔹 Envoi du token FCM au backend
+        final notificationService = NotificationService();
+        await notificationService.updateFcmToken(
+          userId: userId.toString(),
+          jwtToken: token,
+        );
 
         // Sauvegarde token
         try {

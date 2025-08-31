@@ -1,6 +1,5 @@
 import 'package:faso_carbu_mobile/screens/agents_list_screen.dart';
 import 'package:faso_carbu_mobile/screens/creer_agent_screen.dart';
-
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -17,6 +16,8 @@ import 'package:faso_carbu_mobile/screens/ticket-list-agent.dart';
 import 'package:logger/logger.dart';
 
 var logger = Logger();
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -38,6 +39,7 @@ void main() async {
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
+  // 🔹 Foreground
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     logger.i("📨 Notification reçue en premier plan !");
     if (message.notification != null) {
@@ -46,14 +48,39 @@ void main() async {
     }
   });
 
+  // 🔹 Quand on clique sur une notif (app ouverte en arrière-plan)
   FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
     logger.i("📲 Application ouverte via une notification !");
+    _handleMessageNavigation(message);
   });
+
+  // 🔹 Quand on ouvre l’app via une notif (app complètement fermée)
+  RemoteMessage? initialMessage = await FirebaseMessaging.instance
+      .getInitialMessage();
+  if (initialMessage != null) {
+    Future.delayed(const Duration(seconds: 1), () {
+      _handleMessageNavigation(initialMessage);
+    });
+  }
 
   final fcmToken = await FirebaseMessaging.instance.getToken();
   logger.i("📱 Token FCM : $fcmToken");
 
   runApp(const FasoCarbuApp());
+}
+
+/// Gestion de la navigation après une notification
+void _handleMessageNavigation(RemoteMessage message) {
+  final data = message.data;
+  logger.i("📦 Données de la notification : $data");
+
+  // Exemple : le backend envoie { "route": "/ticket" }
+  final route = data['route'];
+  if (route != null && navigatorKey.currentState != null) {
+    navigatorKey.currentState!.pushNamed(route, arguments: data);
+  } else {
+    logger.w("⚠️ Aucune route trouvée dans la notification");
+  }
 }
 
 class FasoCarbuApp extends StatelessWidget {
@@ -62,6 +89,7 @@ class FasoCarbuApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey, // ✅ nécessaire pour naviguer depuis notif
       debugShowCheckedModeBanner: false,
       title: 'FasoCarbu',
       theme: ThemeData(primarySwatch: Colors.blue),
@@ -96,7 +124,7 @@ class FasoCarbuApp extends StatelessWidget {
 
           case '/scan-qr':
             final token = args?['token'];
-            final userId = args?['userId']; // agent station
+            final userId = args?['userId'];
             if (token is String && userId is String) {
               return MaterialPageRoute(
                 builder: (_) => ScanQrScreen(token: token, userId: userId),
@@ -143,10 +171,10 @@ class FasoCarbuApp extends StatelessWidget {
               builder: (_) => const NotificationScreen(),
             );
 
-          // 🔹 Routes Admin Station
+          // 🔹 Admin Station
           case '/agents-list':
             final token = args?['token'];
-            final adminStationId = args?['adminStationId']; // ✅ corrigé
+            final adminStationId = args?['adminStationId'];
             if (token is String && adminStationId is String) {
               return MaterialPageRoute(
                 builder: (_) => AgentsListScreen(
@@ -159,7 +187,7 @@ class FasoCarbuApp extends StatelessWidget {
 
           case '/creer-agent_station':
             final token = args?['token'];
-            final adminStationId = args?['adminStationId']; // ✅ corrigé
+            final adminStationId = args?['adminStationId'];
             if (token is String && adminStationId is String) {
               return MaterialPageRoute(
                 builder: (_) => CreerAgentScreen(
@@ -170,7 +198,7 @@ class FasoCarbuApp extends StatelessWidget {
             }
             return _errorRoute();
 
-          // 🔹 Routes Carburants
+          // 🔹 Carburants
           case '/carburants-list':
             final token = args?['token'];
             final adminStationId = args?['adminStationId'];
@@ -197,7 +225,7 @@ class FasoCarbuApp extends StatelessWidget {
             }
             return _errorRoute();
 
-          // 🔹 Routes Chauffeur
+          // 🔹 Chauffeur
           case '/ticket':
             final token = args?['token'];
             if (token is String) {
