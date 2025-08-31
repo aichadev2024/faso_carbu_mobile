@@ -15,6 +15,7 @@ class ScanQrScreen extends StatefulWidget {
 
 class _ScanQrScreenState extends State<ScanQrScreen> {
   String? qrCode;
+  Map<String, dynamic>? ticketData;
   bool _isLoading = false;
 
   Future<void> _validerTicket(String code) async {
@@ -69,32 +70,54 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
     final String? code = capture.barcodes.first.rawValue;
 
     if (code != null && mounted && !_isLoading && code != qrCode) {
-      setState(() {
-        qrCode = code;
-      });
+      try {
+        final decoded = jsonDecode(code); // 🔹 decode le JSON
+        setState(() {
+          qrCode = code;
+          ticketData = decoded;
+        });
 
-      // 🔹 Demander confirmation avant validation
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text("Confirmer validation"),
-          content: Text("Voulez-vous valider ce ticket ?\n\nQR : $code"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Annuler"),
+        // 🔹 Demander confirmation avant validation
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Confirmer validation"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Montant : ${decoded['montant']}"),
+                Text("Quantité : ${decoded['quantite']}"),
+                Text("Carburant : ${decoded['carburant']}"),
+                Text("Véhicule : ${decoded['vehicule']}"),
+                Text("Station : ${decoded['station']}"),
+                Text("Date émission : ${decoded['dateEmission']}"),
+              ],
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text("Valider"),
-            ),
-          ],
-        ),
-      );
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("Annuler"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text("Valider"),
+              ),
+            ],
+          ),
+        );
 
-      if (confirm == true) {
-        _validerTicket(code);
+        if (confirm == true) {
+          _validerTicket(code);
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("❌ QR invalide : $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -128,7 +151,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
               ],
             ),
           ),
-          if (qrCode != null)
+          if (ticketData != null)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -138,12 +161,20 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
                   top: BorderSide(color: Colors.red.shade200, width: 1),
                 ),
               ),
-              child: Text(
-                "📌 Dernier QR détecté :\n$qrCode",
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "📌 Infos du ticket scanné :",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  Text("Montant : ${ticketData!['montant']}"),
+                  Text("Quantité : ${ticketData!['quantite']}"),
+                  Text("Carburant : ${ticketData!['carburant']}"),
+                  Text("Véhicule : ${ticketData!['vehicule']}"),
+                  Text("Station : ${ticketData!['station']}"),
+                  Text("Date : ${ticketData!['dateEmission']}"),
+                ],
               ),
             ),
         ],
