@@ -44,18 +44,23 @@ class ApiService {
         await prefs.setString('jwt_token', token);
         await prefs.setString('userId', userId.toString());
 
+        // 🔹 Sauvegarde en local pour mode offline
+        final user = UserModel.fromJson(data['user']);
+        await DatabaseHelper.instance.saveUser(user);
+
         logger.i('✅ Connexion réussie. Token : $token');
         return true;
       } else {
-        logger.i('❌ Erreur login : ${response.body}');
+        logger.e('❌ Erreur login : ${response.body}');
         return false;
       }
     } catch (e) {
-      logger.i('❌ Exception login : $e');
+      logger.e('❌ Exception login : $e');
       return false;
     }
   }
 
+  // ✅ Tickets
   static Future<List<Ticket>> fetchTicketsOnline() async {
     final token = await getToken();
     final response = await http.get(
@@ -101,7 +106,10 @@ class ApiService {
         throw Exception("Échec de l'envoi du ticket");
       }
     } else {
-      await DatabaseHelper.instance.insertTicket(ticket.toMap());
+      // 🔹 Sauvegarde local avec statut "local"
+      final localTicket = ticket.toMap();
+      localTicket['statut'] = 'local';
+      await DatabaseHelper.instance.insertTicket(localTicket);
     }
   }
 
@@ -125,10 +133,13 @@ class ApiService {
             ticket.id.toString(),
           );
         }
-      } catch (_) {}
+      } catch (e) {
+        logger.e("⚠️ Sync ticket échoué : $e");
+      }
     }
   }
 
+  // ✅ Users
   static Future<void> registerUser(UserModel user) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/register'),
@@ -150,7 +161,7 @@ class ApiService {
     for (UserModel user in offlineUsers) {
       try {
         final response = await http.post(
-          Uri.parse('$baseUrl/users/auth/register'),
+          Uri.parse('$baseUrl/auth/register'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode(user.toJson()),
         );
@@ -158,52 +169,9 @@ class ApiService {
         if (response.statusCode == 200 || response.statusCode == 201) {
           await DatabaseHelper.instance.markUserAsSynced(user.id!);
         }
-      } catch (_) {}
-    }
-  }
-
-  static Future<void> createDemande(Map<String, dynamic> data) async {
-    final token = await getToken();
-    final response = await http.post(
-      Uri.parse('$baseUrl/demandes'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode(data),
-    );
-
-    logger.i('Demande ➜ Code ${response.statusCode}');
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Échec de la création de la demande');
-    }
-  }
-
-  static Future<List<dynamic>> getDemandesByChauffeur() async {
-    final token = await getToken();
-    final response = await http.get(
-      Uri.parse('$baseUrl/demandes/mes-demandes'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Erreur lors du chargement des demandes');
-    }
-  }
-
-  static Future<List<dynamic>> getDemandesByStatut(String statut) async {
-    final token = await getToken();
-    final response = await http.get(
-      Uri.parse('$baseUrl/demandes/statut/$statut'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Erreur lors du chargement des demandes');
+      } catch (e) {
+        logger.e("⚠️ Sync user échoué : $e");
+      }
     }
   }
 
@@ -230,10 +198,8 @@ class ApiService {
         final List data = jsonDecode(response.body);
         final carburants = data.map((e) => Carburant.fromJson(e)).toList();
 
-        // Supprimer les anciens carburants
+        // 🔹 Clear + insert
         await DatabaseHelper.instance.clearCarburants();
-
-        // Insérer les nouveaux carburants
         for (Carburant carburant in carburants) {
           await DatabaseHelper.instance.insertCarburant(carburant);
         }
@@ -241,7 +207,7 @@ class ApiService {
         throw Exception('Échec de la récupération des carburants');
       }
     } catch (e) {
-      logger.e('Erreur de synchronisation carburants : $e');
+      logger.e('Erreur sync carburants : $e');
     }
   }
 }

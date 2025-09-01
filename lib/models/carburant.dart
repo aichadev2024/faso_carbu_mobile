@@ -1,29 +1,33 @@
 class Carburant {
-  final int? id;
+  final int id;
   final String nom;
   final double prix;
 
-  Carburant({
-    this.id,
-    required this.nom,
-    required this.prix,
-  });
+  Carburant({required this.id, required this.nom, required this.prix});
 
+  // 🔹 Depuis l’API (backend JSON)
   factory Carburant.fromJson(Map<String, dynamic> json) {
     return Carburant(
       id: json['id'],
       nom: json['nom'],
-      prix: (json['prix'] is int)
-          ? (json['prix'] as int).toDouble()
-          : json['prix'],
+      prix: (json['prix'] as num).toDouble(),
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      if (id != null) 'id': id,
-      'nom': nom,
-      'prix': prix,
-    };
+    return {'id': id, 'nom': nom, 'prix': prix};
+  }
+
+  // 🔹 Pour SQLite (DB locale)
+  factory Carburant.fromMap(Map<String, dynamic> map) {
+    return Carburant(
+      id: map['id'],
+      nom: map['nom'],
+      prix: (map['prix'] as num).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {'id': id, 'nom': nom, 'prix': prix};
   }
 }

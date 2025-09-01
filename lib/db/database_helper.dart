@@ -2,10 +2,8 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:faso_carbu_mobile/models/ticket.dart';
 import 'package:faso_carbu_mobile/models/notification_model.dart';
-import 'package:http/http.dart' as http;
 import 'package:faso_carbu_mobile/models/user_model.dart';
 import 'package:faso_carbu_mobile/models/carburant.dart';
-import 'dart:convert';
 import 'package:logger/logger.dart';
 
 var logger = Logger();
@@ -16,8 +14,8 @@ class DatabaseHelper {
 
   DatabaseHelper._init();
 
-  static const int _databaseVersion =
-      8; // Incrémenté pour appliquer la nouvelle colonne
+  /// ✅ Incrémente la version après suppression de vehicule
+  static const int _databaseVersion = 11;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -37,33 +35,7 @@ class DatabaseHelper {
   }
 
   Future _createDB(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE demandes (
-        id TEXT PRIMARY KEY,
-        demandeur TEXT NOT NULL,
-        station TEXT NOT NULL,
-        dateDemande TEXT NOT NULL,
-        quantite REAL NOT NULL,
-        statut TEXT,
-        carburantId TEXT
-        vehiculeId TEXT,
-        validateurId TEXT,
-        dateValidation TEXT
-
-
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE notifications (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        titre TEXT,
-        message TEXT,
-        date TEXT,
-        lu INTEGER
-      )
-    ''');
-
+    // Tickets
     await db.execute('''
       CREATE TABLE tickets (
         id TEXT PRIMARY KEY,
@@ -76,16 +48,8 @@ class DatabaseHelper {
         statut TEXT
       )
     ''');
-    await db.execute('''
-  CREATE TABLE vehicule (
-    id TEXT PRIMARY KEY,
-    immatriculation TEXT,
-    marque TEXT,
-    type TEXT,
-    chauffeurId TEXT
-  )
-''');
 
+    // Utilisateurs
     await db.execute('''
       CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -99,36 +63,40 @@ class DatabaseHelper {
         isSynced INTEGER DEFAULT 0
       )
     ''');
+
+    // Carburants
     await db.execute('''
-        CREATE TABLE carburants (
+      CREATE TABLE carburants (
         id INTEGER PRIMARY KEY,
         nom TEXT NOT NULL,
         prix REAL NOT NULL
-  )
-''');
+      )
+    ''');
+
+    // Notifications
+    await db.execute('''
+      CREATE TABLE notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        titre TEXT,
+        message TEXT,
+        date TEXT,
+        lu INTEGER
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 4) {
-      await db.execute('ALTER TABLE users ADD COLUMN backend_id TEXT');
-      await db.execute(
-        'ALTER TABLE users ADD COLUMN isSynced INTEGER DEFAULT 0',
-      );
-    }
-
-    if (oldVersion < 7) {
-      await db.execute('ALTER TABLE demandes ADD COLUMN carburantId TEXT');
-    }
-    if (oldVersion < 8) {
-      await db.execute('ALTER TABLE demandes ADD COLUMN vehiculeId TEXT');
-      await db.execute('ALTER TABLE demandes ADD COLUMN validateurId TEXT');
-      await db.execute('ALTER TABLE demandes ADD COLUMN dateValidation TEXT');
+    // On supprime vehicule si elle existait encore
+    if (oldVersion < 11) {
+      await db.execute('DROP TABLE IF EXISTS vehicule');
+      await db.execute('DROP TABLE IF EXISTS demandes');
     }
   }
 
-  // =============== TICKETS ===============
+  // ================= TICKETS =================
   Future<void> insertTicket(Map<String, dynamic> ticket) async {
     final db = await instance.database;
+    ticket['statut'] ??= 'local';
     await db.insert(
       'tickets',
       ticket,
@@ -139,6 +107,7 @@ class DatabaseHelper {
   Future<void> saveTicketsOffline(List<Map<String, dynamic>> tickets) async {
     final db = await instance.database;
     for (var ticket in tickets) {
+      ticket['statut'] ??= 'local';
       await db.insert(
         'tickets',
         ticket,
@@ -173,12 +142,7 @@ class DatabaseHelper {
     );
   }
 
-  Future<void> deleteTicket(String id) async {
-    final db = await instance.database;
-    await db.delete('tickets', where: 'id = ?', whereArgs: [id]);
-  }
-
-  // =============== USERS ===============
+  // ================= USERS =================
   Future<void> saveUser(UserModel users) async {
     final db = await instance.database;
     await db.insert(
@@ -186,16 +150,6 @@ class DatabaseHelper {
       users.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-  }
-
-  Future<UserModel?> getUser(String email) async {
-    final db = await instance.database;
-    final result = await db.query(
-      'users',
-      where: 'email = ?',
-      whereArgs: [email],
-    );
-    return result.isNotEmpty ? UserModel.fromMap(result.first) : null;
   }
 
   Future<UserModel?> getUserByEmailAndPassword(
@@ -211,52 +165,10 @@ class DatabaseHelper {
     return result.isNotEmpty ? UserModel.fromMap(result.first) : null;
   }
 
-  Future<void> clearUsers() async {
-    final db = await instance.database;
-    await db.delete('users');
-  }
-
-  Future<void> syncLocalUsersToServer() async {
+  Future<List<UserModel>> getUnsyncedUsers() async {
     final db = await database;
-    final List<Map<String, dynamic>> localUsers = await db.query(
-      'users',
-      where: 'isSynced = ?',
-      whereArgs: [0],
-    );
-
-    for (final userMap in localUsers) {
-      final user = UserModel.fromMap(userMap);
-
-      try {
-        final response = await http.post(
-          Uri.parse('https://faso-carbu-back-2.onrender.com/api/auth/register'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            "nom": user.nom,
-            "prenom": user.prenom,
-            "email": user.email,
-            "motDePasse": user.motDePasse,
-            "role": user.role,
-          }),
-        );
-
-        if (response.statusCode == 200 || response.statusCode == 201) {
-          await db.update(
-            'users',
-            {'isSynced': 1},
-            where: 'id = ?',
-            whereArgs: [user.id],
-          );
-          logger.i('✅ Utilisateur synchronisé : ${user.email}');
-        } else {
-          logger.e(
-            '❌ Erreur serveur pour ${user.email} - Code: ${response.statusCode}',
-          );
-        }
-      } catch (e) {
-        logger.e('❌ Erreur réseau pour ${user.email} : $e');
-      }
-    }
+    final maps = await db.query('users', where: 'isSynced = 0');
+    return maps.map((u) => UserModel.fromMap(u)).toList();
   }
 
   Future<void> markUserAsSynced(int id) async {
@@ -264,57 +176,28 @@ class DatabaseHelper {
     await db.update('users', {'isSynced': 1}, where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<List<UserModel>> getUnsyncedUsers() async {
+  // ================= CARBURANTS =================
+  Future<void> insertCarburant(Carburant carburant) async {
     final db = await database;
-    final maps = await db.query('users', where: 'isSynced = 0');
-    return maps.map((u) => UserModel.fromMap(u)).toList();
-  }
-
-  Future<int> insertUser(UserModel users) async {
-    final db = await database;
-    return await db.insert(
-      'users',
-      users.toMap(),
+    await db.insert(
+      'carburants',
+      carburant.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  Future<void> syncOldUsersToServer() async {
+  Future<List<Carburant>> getAllCarburants() async {
     final db = await database;
-    final unsyncedUsers = await getUnsyncedUsers();
-
-    for (final user in unsyncedUsers) {
-      try {
-        final response = await http.post(
-          Uri.parse('https://faso-carbu-back-2.onrender.com/api/auth/register'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            "nom": user.nom,
-            "prenom": user.prenom,
-            "email": user.email,
-            "motDePasse": user.motDePasse,
-            "role": user.role,
-          }),
-        );
-
-        if (response.statusCode == 200 || response.statusCode == 201) {
-          await db.update(
-            'users',
-            {'isSynced': 1},
-            where: 'id = ?',
-            whereArgs: [user.id],
-          );
-          logger.i('🔁 Ancien utilisateur synchronisé : ${user.email}');
-        } else {
-          logger.i('❌ Ancien utilisateur non synchronisé : ${user.email}');
-        }
-      } catch (e) {
-        logger.e('⚠ Erreur de sync pour ${user.email} : $e');
-      }
-    }
+    final maps = await db.query('carburants');
+    return maps.map((map) => Carburant.fromMap(map)).toList();
   }
 
-  // =============== NOTIFICATIONS ===============
+  Future<void> clearCarburants() async {
+    final db = await database;
+    await db.delete('carburants');
+  }
+
+  // ================= NOTIFICATIONS =================
   Future<void> insertNotification(Map<String, dynamic> notification) async {
     final db = await instance.database;
     await db.insert(
@@ -340,59 +223,12 @@ class DatabaseHelper {
     );
   }
 
-  Future<void> deleteNotification(int id) async {
-    final db = await instance.database;
-    await db.delete('notifications', where: 'id = ?', whereArgs: [id]);
-  }
-
-  Future<void> clearNotifications() async {
-    final db = await instance.database;
+  // ================= GLOBAL =================
+  Future<void> clearAll() async {
+    final db = await DatabaseHelper.instance.database;
+    await db.delete('tickets');
+    await db.delete('users');
     await db.delete('notifications');
-  }
-
-  Future<int> countNotificationsNonLues() async {
-    final db = await database;
-    final result = await db.rawQuery(
-      'SELECT COUNT(*) AS total FROM notifications WHERE lu = 0',
-    );
-    return Sqflite.firstIntValue(result) ?? 0;
-  }
-
-  Future<void> insertCarburant(Carburant carburant) async {
-    final db = await database;
-    await db.insert(
-      'carburants',
-      carburant.toJson(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
-  Future<List<Carburant>> getAllCarburants() async {
-    final db = await database;
-    final maps = await db.query('carburants');
-    return maps.map((map) => Carburant.fromJson(map)).toList();
-  }
-
-  Future<void> clearCarburants() async {
-    final db = await database;
     await db.delete('carburants');
   }
-
-  Future<void> updateCarburant(Carburant carburant) async {
-    final db = await database;
-    await db.update(
-      'carburants',
-      carburant.toJson(),
-      where: 'id = ?',
-      whereArgs: [carburant.id],
-    );
-  }
-}
-
-// =============== GLOBAL ===============
-Future<void> clearAll() async {
-  final db = await DatabaseHelper.instance.database;
-  await db.delete('demandes');
-  await db.delete('tickets');
-  await db.delete('users');
 }

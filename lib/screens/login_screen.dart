@@ -144,7 +144,8 @@ class _LoginScreenState extends State<LoginScreen>
             prenom: prenom,
             isSynced: 1,
           );
-          await DatabaseHelper.instance.insertUser(user);
+          await DatabaseHelper.instance.saveUser(user);
+
           logger.i("Utilisateur inséré en base locale");
         } catch (e, st) {
           logger.e(
