@@ -17,21 +17,24 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
   String? qrCode;
   Map<String, dynamic>? ticketData;
   bool _isLoading = false;
-
-  Future<void> _validerTicket(String code) async {
+  Future<void> _validerTicket(String rawQr) async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final payload = {"codeQr": code, "montant": ticketData?['montant']};
+      final payload = {
+        "codeQr": rawQr, // ✅ on envoie le QR brut (string JSON)
+        "montant":
+            ticketData?['montant']?.toString() ?? "0", // ✅ toujours un montant
+      };
 
-      debugPrint("📤 Envoi au backend:");
-      debugPrint(
+      print("📤 Envoi au backend:");
+      print(
         "URL: https://faso-carbu-backend-2.onrender.com/api/tickets/valider",
       );
-      debugPrint("Headers: {Authorization: Bearer ${widget.token}}");
-      debugPrint("Payload: $payload");
+      print("Headers: {Authorization: Bearer ${widget.token}}");
+      print("Payload: $payload");
 
       final response = await http.post(
         Uri.parse(
@@ -44,9 +47,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
         body: jsonEncode(payload),
       );
 
-      debugPrint(
-        "📥 Réponse backend (${response.statusCode}): ${response.body}",
-      );
+      print("📥 Réponse backend (${response.statusCode}): ${response.body}");
 
       if (response.statusCode == 200) {
         if (!mounted) return;
@@ -68,8 +69,6 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
         );
       }
     } catch (e) {
-      debugPrint("⚠️ Exception lors de l'appel backend: $e");
-
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
