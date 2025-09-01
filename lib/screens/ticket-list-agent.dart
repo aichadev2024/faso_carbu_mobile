@@ -53,12 +53,23 @@ class _TicketListAgentScreenState extends State<TicketListAgentScreen> {
     }
   }
 
+  Color _getStatusColor(String statut) {
+    switch (statut) {
+      case "VALIDE":
+        return Colors.green.shade600;
+      case "EN_ATTENTE":
+        return Colors.orange.shade600;
+      default:
+        return Colors.grey.shade600;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const Text("Historique Tickets"),
+        title: const Text("Tickets Agent"),
         centerTitle: true,
         backgroundColor: Colors.red.shade700,
         elevation: 3,
@@ -97,9 +108,7 @@ class _TicketListAgentScreenState extends State<TicketListAgentScreen> {
                     contentPadding: const EdgeInsets.all(16),
                     leading: CircleAvatar(
                       radius: 25,
-                      backgroundColor: statut == "VALIDE"
-                          ? Colors.green.shade600
-                          : Colors.orange.shade600,
+                      backgroundColor: _getStatusColor(statut),
                       child: const Icon(
                         Icons.receipt_long,
                         color: Colors.white,
@@ -134,9 +143,7 @@ class _TicketListAgentScreenState extends State<TicketListAgentScreen> {
                       statut,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: statut == "VALIDE"
-                            ? Colors.green
-                            : Colors.orange,
+                        color: _getStatusColor(statut),
                       ),
                     ),
                   ),

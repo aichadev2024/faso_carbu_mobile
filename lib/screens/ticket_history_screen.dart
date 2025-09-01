@@ -29,7 +29,7 @@ class _TicketHistoryScreenState extends State<TicketHistoryScreen> {
     try {
       final response = await http.get(
         Uri.parse(
-          "https://faso-carbu-backend-2.onrender.com/api/tickets/mes-tickets",
+          "https://faso-carbu-backend-2.onrender.com/api/tickets/mes-tickets-valides",
         ),
         headers: {
           'Authorization': 'Bearer ${widget.token}',
@@ -40,8 +40,7 @@ class _TicketHistoryScreenState extends State<TicketHistoryScreen> {
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         setState(() {
-          // 🔹 On garde seulement les tickets utilisés
-          tickets = data.where((t) => t['statut'] == 'UTILISE').toList();
+          tickets = data; // ✅ déjà filtrés côté backend
           isLoading = false;
         });
       } else {
@@ -51,6 +50,17 @@ class _TicketHistoryScreenState extends State<TicketHistoryScreen> {
     } catch (e) {
       logger.e("Exception: $e");
       setState(() => isLoading = false);
+    }
+  }
+
+  Color _getStatusColor(String statut) {
+    switch (statut) {
+      case "VALIDE":
+        return Colors.green.shade600;
+      case "EN_ATTENTE":
+        return Colors.orange.shade600;
+      default:
+        return Colors.grey.shade600;
     }
   }
 
@@ -64,12 +74,14 @@ class _TicketHistoryScreenState extends State<TicketHistoryScreen> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : tickets.isEmpty
-          ? const Center(child: Text("Aucun ticket utilisé trouvé."))
+          ? const Center(child: Text("Aucun ticket validé trouvé."))
           : ListView.builder(
               padding: const EdgeInsets.all(12),
               itemCount: tickets.length,
               itemBuilder: (context, index) {
                 final ticket = tickets[index];
+                final statut = ticket['statut'] ?? "-";
+
                 return Card(
                   color: Colors.grey.shade100,
                   shape: RoundedRectangleBorder(
@@ -78,7 +90,11 @@ class _TicketHistoryScreenState extends State<TicketHistoryScreen> {
                   elevation: 2,
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
-                    leading: const Icon(Icons.history, color: Colors.red),
+                    leading: CircleAvatar(
+                      radius: 22,
+                      backgroundColor: _getStatusColor(statut),
+                      child: const Icon(Icons.history, color: Colors.white),
+                    ),
                     title: Text(
                       "Ticket #${ticket['id'] ?? ''}",
                       style: const TextStyle(fontWeight: FontWeight.bold),
@@ -90,15 +106,20 @@ class _TicketHistoryScreenState extends State<TicketHistoryScreen> {
                         Text("Quantité: ${ticket['quantite'] ?? ''} L"),
                         Text(
                           "💰 Somme: ${ticket['somme'] ?? 0} FCFA",
-                        ), // 🔹 ajouté
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
                         Text("Validé le: ${ticket['dateValidation'] ?? '---'}"),
                       ],
                     ),
-
-                    trailing: const Icon(
-                      Icons.arrow_forward_ios,
-                      size: 16,
-                      color: Colors.grey,
+                    trailing: Text(
+                      statut,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: _getStatusColor(statut),
+                      ),
                     ),
                     onTap: () {
                       Navigator.push(
