@@ -12,6 +12,7 @@ class NotificationService {
   Future<String?> getFcmToken() async {
     try {
       String? token = await _firebaseMessaging.getToken();
+      logger.i("🎯 FCM Token récupéré: $token");
       return token;
     } catch (e) {
       logger.e("⚠️ Erreur récupération FCM Token: $e");
@@ -21,7 +22,7 @@ class NotificationService {
 
   /// Envoie le token FCM vers ton backend
   Future<void> updateFcmToken({
-    required String userId,
+    required String userId, // ⚠️ doit être un UUID string valide
     required String jwtToken,
   }) async {
     try {
@@ -33,14 +34,15 @@ class NotificationService {
 
       final response = await http.post(
         Uri.parse(
-          "https://faso-carbu-backend-2.onrender.com/api/utilisateur/update-token",
+          "https://faso-carbu-backend-2.onrender.com/api/utilisateurs/update-token", // ✅ corrigé (utilisateurs avec 's')
         ),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer $jwtToken",
         },
         body: jsonEncode({
-          "userId": userId, // ✅ doit être non null
+          "userId":
+              userId, // ✅ UUID attendu (ex: "b2a1c4e3-12ab-4567-89cd-123456789abc")
           "fcmToken": fcmToken,
         }),
       );
