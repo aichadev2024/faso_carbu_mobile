@@ -13,6 +13,7 @@ import 'package:faso_carbu_mobile/screens/ticket_history_screen.dart';
 import 'package:faso_carbu_mobile/screens/carburants_list_screen.dart';
 import 'package:faso_carbu_mobile/screens/creer_carburant_screen.dart';
 import 'package:faso_carbu_mobile/screens/ticket-list-agent.dart';
+import 'package:faso_carbu_mobile/screens/onboarding_screen.dart'; // ✅ Ajouté
 import 'package:logger/logger.dart';
 
 var logger = Logger();
@@ -74,7 +75,6 @@ void _handleMessageNavigation(RemoteMessage message) {
   final data = message.data;
   logger.i("📦 Données de la notification : $data");
 
-  // Exemple : le backend envoie { "route": "/ticket" }
   final route = data['route'];
   if (route != null && navigatorKey.currentState != null) {
     navigatorKey.currentState!.pushNamed(route, arguments: data);
@@ -89,15 +89,21 @@ class FasoCarbuApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorKey: navigatorKey, // ✅ nécessaire pour naviguer depuis notif
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'FasoCarbu',
       theme: ThemeData(primarySwatch: Colors.blue),
-      initialRoute: '/login',
+      initialRoute: '/onboarding', // ✅ On démarre sur onboarding
       onGenerateRoute: (settings) {
         final args = settings.arguments as Map<String, dynamic>?;
 
         switch (settings.name) {
+          case '/onboarding': // ✅ Ajout onboarding
+            return MaterialPageRoute(builder: (_) => const OnboardingScreen());
+
+          case '/login':
+            return MaterialPageRoute(builder: (_) => const LoginScreen());
+
           case '/home':
             final userEmail = args?['userEmail'];
             final userRole = args?['userRole'];
@@ -131,9 +137,6 @@ class FasoCarbuApp extends StatelessWidget {
               );
             }
             return _errorRoute();
-
-          case '/login':
-            return MaterialPageRoute(builder: (_) => const LoginScreen());
 
           case '/profil':
             final userEmail = args?['userEmail'];
