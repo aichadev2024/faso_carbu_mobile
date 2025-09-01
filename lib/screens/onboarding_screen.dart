@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:faso_carbu_mobile/screens/login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -171,7 +172,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-/// ✅ Transition personnalisée (fade + slide)
 class _FadeSlideTransition extends StatelessWidget {
   final String toPage;
   const _FadeSlideTransition({required this.toPage});
@@ -181,14 +181,11 @@ class _FadeSlideTransition extends StatelessWidget {
     return Navigator(
       onGenerateRoute: (settings) {
         return PageRouteBuilder(
-          pageBuilder: (_, animation, _) {
+          pageBuilder: (_, animation, __) {
             final Widget page;
             switch (toPage) {
               case '/login':
-                page = const Placeholder(
-                  fallbackHeight: 100,
-                  fallbackWidth: 100,
-                ); // ⚠️ remplace par LoginScreen
+                page = const LoginScreen(); // ✅ ton vrai login
                 break;
               default:
                 page = const Scaffold(
