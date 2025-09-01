@@ -24,6 +24,15 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
     });
 
     try {
+      final payload = {"codeQr": code, "montant": ticketData?['montant']};
+
+      debugPrint("📤 Envoi au backend:");
+      debugPrint(
+        "URL: https://faso-carbu-backend-2.onrender.com/api/tickets/valider",
+      );
+      debugPrint("Headers: {Authorization: Bearer ${widget.token}}");
+      debugPrint("Payload: $payload");
+
       final response = await http.post(
         Uri.parse(
           "https://faso-carbu-backend-2.onrender.com/api/tickets/valider",
@@ -32,11 +41,12 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${widget.token}",
         },
-        body: jsonEncode({
-          "codeQr": code, // 🔹 correspond bien au backend
-          "montant": ticketData?['montant'], // 🔹 montant du ticket scanné
-        }),
-      ); // ✅ parenthèse fermée correctement
+        body: jsonEncode(payload),
+      );
+
+      debugPrint(
+        "📥 Réponse backend (${response.statusCode}): ${response.body}",
+      );
 
       if (response.statusCode == 200) {
         if (!mounted) return;
@@ -58,6 +68,8 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
         );
       }
     } catch (e) {
+      debugPrint("⚠️ Exception lors de l'appel backend: $e");
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -77,9 +89,13 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
   void _onDetect(BarcodeCapture capture) async {
     final String? code = capture.barcodes.first.rawValue;
 
+    debugPrint("📷 QR détecté brut: $code");
+
     if (code != null && mounted && !_isLoading && code != qrCode) {
       try {
-        final decoded = jsonDecode(code); // 🔹 decode le JSON
+        final decoded = jsonDecode(code);
+        debugPrint("📦 QR décodé JSON: $decoded");
+
         setState(() {
           qrCode = code;
           ticketData = decoded;
@@ -119,6 +135,8 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
           _validerTicket(code);
         }
       } catch (e) {
+        debugPrint("❌ Erreur lors du décodage QR: $e");
+
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
