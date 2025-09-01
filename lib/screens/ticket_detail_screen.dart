@@ -103,6 +103,9 @@ class TicketDetailScreen extends StatelessWidget {
                     ),
                     const Divider(),
                     Text(
+                      "💰 Somme : ${ticket['somme'] ?? 0} FCFA",
+                    ), // 🔹 affichage somme
+                    Text(
                       "👨 Chauffeur : ${ticket['utilisateurNom'] ?? '-'} ${ticket['utilisateurPrenom'] ?? ''}",
                     ),
                     Text(

@@ -80,8 +80,10 @@ class _TicketScreenState extends State<TicketScreen> {
                   title: Text("Ticket #${ticket['id']}"),
                   subtitle: Text(
                     "Carburant: ${ticket['carburantNom']} - ${ticket['quantite']} L\n"
+                    "💰 Somme: ${ticket['somme'] ?? 0} FCFA\n" // 🔹 ajouté
                     "Statut: ${ticket['statut']}",
                   ),
+
                   trailing: const Icon(
                     Icons.arrow_forward_ios,
                     size: 16,

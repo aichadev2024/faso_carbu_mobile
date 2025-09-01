@@ -77,6 +77,15 @@ class _TicketListAgentScreenState extends State<TicketListAgentScreen> {
               itemCount: tickets.length,
               itemBuilder: (context, index) {
                 final ticket = tickets[index];
+
+                final statut = ticket["statut"] ?? "-";
+                final chauffeur =
+                    "${ticket['utilisateurNom'] ?? ''} ${ticket['utilisateurPrenom'] ?? ''}";
+                final carburant = ticket["carburantNom"] ?? "---";
+                final quantite = ticket["quantite"] ?? 0;
+                final somme = ticket["somme"] ?? 0;
+                final dateValidation = ticket["dateValidation"] ?? "---";
+
                 return Card(
                   margin: const EdgeInsets.only(bottom: 16),
                   shape: RoundedRectangleBorder(
@@ -88,9 +97,9 @@ class _TicketListAgentScreenState extends State<TicketListAgentScreen> {
                     contentPadding: const EdgeInsets.all(16),
                     leading: CircleAvatar(
                       radius: 25,
-                      backgroundColor: ticket["status"] == "VALIDE"
+                      backgroundColor: statut == "VALIDE"
                           ? Colors.green.shade600
-                          : Colors.red.shade600,
+                          : Colors.orange.shade600,
                       child: const Icon(
                         Icons.receipt_long,
                         color: Colors.white,
@@ -98,7 +107,7 @@ class _TicketListAgentScreenState extends State<TicketListAgentScreen> {
                       ),
                     ),
                     title: Text(
-                      "${ticket['chauffeurNom']} - ${ticket['carburant']}",
+                      "$chauffeur - $carburant",
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -109,18 +118,25 @@ class _TicketListAgentScreenState extends State<TicketListAgentScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("Quantité : ${ticket['quantite']}"),
-                          Text("Date : ${ticket['date']}"),
+                          Text("Quantité : $quantite L"),
+                          Text(
+                            "💰 Somme : $somme FCFA",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                          Text("Validé le : $dateValidation"),
                         ],
                       ),
                     ),
                     trailing: Text(
-                      ticket["status"],
+                      statut,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: ticket["status"] == "VALIDE"
+                        color: statut == "VALIDE"
                             ? Colors.green
-                            : Colors.red,
+                            : Colors.orange,
                       ),
                     ),
                   ),

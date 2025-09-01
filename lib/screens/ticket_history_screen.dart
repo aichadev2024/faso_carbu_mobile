@@ -88,9 +88,13 @@ class _TicketHistoryScreenState extends State<TicketHistoryScreen> {
                       children: [
                         Text("Carburant: ${ticket['carburantNom'] ?? '---'}"),
                         Text("Quantité: ${ticket['quantite'] ?? ''} L"),
+                        Text(
+                          "💰 Somme: ${ticket['somme'] ?? 0} FCFA",
+                        ), // 🔹 ajouté
                         Text("Validé le: ${ticket['dateValidation'] ?? '---'}"),
                       ],
                     ),
+
                     trailing: const Icon(
                       Icons.arrow_forward_ios,
                       size: 16,
