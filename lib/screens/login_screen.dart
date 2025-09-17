@@ -219,7 +219,6 @@ class _LoginScreenState extends State<LoginScreen>
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // 🔹 Cercle rouge en haut avec "FasoCarbu"
                   Container(
                     width: 100,
                     height: 100,
@@ -352,17 +351,6 @@ class _LoginScreenState extends State<LoginScreen>
                                   ),
                                 ),
                           const SizedBox(height: 10),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pushNamed(context, '/register');
-                            },
-                            child: const Text(
-                              "Créer un compte",
-                              style: TextStyle(
-                                color: Color.fromARGB(255, 239, 238, 238),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
