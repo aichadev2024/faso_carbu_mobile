@@ -13,11 +13,10 @@ import 'package:faso_carbu_mobile/screens/ticket_history_screen.dart';
 import 'package:faso_carbu_mobile/screens/carburants_list_screen.dart';
 import 'package:faso_carbu_mobile/screens/creer_carburant_screen.dart';
 import 'package:faso_carbu_mobile/screens/ticket-list-agent.dart';
-import 'package:faso_carbu_mobile/screens/onboarding_screen.dart'; // ✅ Ajouté
+import 'package:faso_carbu_mobile/screens/onboarding_screen.dart';
 import 'package:logger/logger.dart';
 
 var logger = Logger();
-
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 @pragma('vm:entry-point')
@@ -40,7 +39,6 @@ void main() async {
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // 🔹 Foreground
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     logger.i("📨 Notification reçue en premier plan !");
     if (message.notification != null) {
@@ -49,13 +47,11 @@ void main() async {
     }
   });
 
-  // 🔹 Quand on clique sur une notif (app ouverte en arrière-plan)
   FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
     logger.i("📲 Application ouverte via une notification !");
     _handleMessageNavigation(message);
   });
 
-  // 🔹 Quand on ouvre l’app via une notif (app complètement fermée)
   RemoteMessage? initialMessage = await FirebaseMessaging.instance
       .getInitialMessage();
   if (initialMessage != null) {
@@ -70,7 +66,6 @@ void main() async {
   runApp(const FasoCarbuApp());
 }
 
-/// Gestion de la navigation après une notification
 void _handleMessageNavigation(RemoteMessage message) {
   final data = message.data;
   logger.i("📦 Données de la notification : $data");
@@ -93,70 +88,53 @@ class FasoCarbuApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'FasoCarbu',
       theme: ThemeData(primarySwatch: Colors.blue),
-      initialRoute: '/onboarding', // ✅ On démarre sur onboarding
+      initialRoute: '/onboarding',
       onGenerateRoute: (settings) {
         final args = settings.arguments as Map<String, dynamic>?;
 
         switch (settings.name) {
-          case '/onboarding': // ✅ Ajout onboarding
+          case '/onboarding':
             return MaterialPageRoute(builder: (_) => const OnboardingScreen());
-
           case '/login':
             return MaterialPageRoute(builder: (_) => const LoginScreen());
-
           case '/home':
-            final userEmail = args?['userEmail'];
-            final userRole = args?['userRole'];
-            final token = args?['token'];
-            final nom = args?['nom'];
-            final prenom = args?['prenom'];
-
-            if (userEmail is String &&
-                userRole is String &&
-                token is String &&
-                nom is String &&
-                prenom is String) {
+            if (args?['userEmail'] != null &&
+                args?['userRole'] != null &&
+                args?['token'] != null &&
+                args?['nom'] != null &&
+                args?['prenom'] != null) {
               return MaterialPageRoute(
                 builder: (_) => MainScreen(
-                  email: userEmail,
-                  role: userRole,
-                  token: token,
-                  nom: nom,
-                  prenom: prenom,
+                  email: args!['userEmail'],
+                  role: args['userRole'],
+                  token: args['token'],
+                  nom: args['nom'],
+                  prenom: args['prenom'],
                 ),
               );
             }
             return _errorRoute();
-
           case '/scan-qr':
-            final token = args?['token'];
-            final userId = args?['userId'];
-            if (token is String && userId is String) {
+            if (args?['token'] is String && args?['userId'] is String) {
               return MaterialPageRoute(
-                builder: (_) => ScanQrScreen(token: token, userId: userId),
+                builder: (_) =>
+                    ScanQrScreen(token: args!['token'], userId: args['userId']),
               );
             }
             return _errorRoute();
-
           case '/profil':
-            final userEmail = args?['userEmail'];
-            final userRole = args?['userRole'];
-            final token = args?['token'];
-            final nom = args?['nom'];
-            final prenom = args?['prenom'];
-
-            if (userEmail is String &&
-                userRole is String &&
-                token is String &&
-                nom is String &&
-                prenom is String) {
+            if (args?['userEmail'] is String &&
+                args?['userRole'] is String &&
+                args?['token'] is String &&
+                args?['nom'] is String &&
+                args?['prenom'] is String) {
               return MaterialPageRoute(
                 builder: (_) => ProfilScreen(
-                  userEmail: userEmail,
-                  userRole: userRole,
-                  token: token,
-                  nom: nom,
-                  prenom: prenom,
+                  userEmail: args!['userEmail'],
+                  userRole: args['userRole'],
+                  token: args['token'],
+                  nom: args['nom'],
+                  prenom: args['prenom'],
                   onLogout: () {
                     Navigator.pushNamedAndRemoveUntil(
                       context,
@@ -168,92 +146,75 @@ class FasoCarbuApp extends StatelessWidget {
               );
             }
             return _errorRoute();
-
           case '/notifications':
             return MaterialPageRoute(
               builder: (_) => const NotificationScreen(),
             );
 
-          // 🔹 Admin Station
+          // Admin Station
           case '/agents-list':
-            final token = args?['token'];
-            final adminStationId = args?['adminStationId'];
-            if (token is String && adminStationId is String) {
+            if (args?['token'] is String && args?['adminStationId'] is String) {
               return MaterialPageRoute(
                 builder: (_) => AgentsListScreen(
-                  token: token,
-                  adminStationId: adminStationId,
+                  token: args!['token'],
+                  adminStationId: args['adminStationId'],
                 ),
               );
             }
             return _errorRoute();
-
           case '/creer-agent_station':
-            final token = args?['token'];
-            final adminStationId = args?['adminStationId'];
-            if (token is String && adminStationId is String) {
+            if (args?['token'] is String && args?['adminStationId'] is String) {
               return MaterialPageRoute(
                 builder: (_) => CreerAgentScreen(
-                  token: token,
-                  adminStationId: adminStationId,
+                  token: args!['token'],
+                  adminStationId: args['adminStationId'],
                 ),
               );
             }
             return _errorRoute();
-
-          // 🔹 Carburants
           case '/carburants-list':
-            final token = args?['token'];
-            final adminStationId = args?['adminStationId'];
-            if (token is String && adminStationId is String) {
+            if (args?['token'] is String && args?['adminStationId'] is String) {
               return MaterialPageRoute(
                 builder: (_) => CarburantsListScreen(
-                  token: token,
-                  adminStationId: adminStationId,
+                  token: args!['token'],
+                  adminStationId: args['adminStationId'],
                 ),
               );
             }
             return _errorRoute();
-
           case '/creer-carburant':
-            final token = args?['token'];
-            final adminStationId = args?['adminStationId'];
-            if (token is String && adminStationId is String) {
+            if (args?['token'] is String && args?['adminStationId'] is String) {
               return MaterialPageRoute(
                 builder: (_) => CreerCarburantScreen(
-                  token: token,
-                  adminStationId: adminStationId,
+                  token: args!['token'],
+                  adminStationId: args['adminStationId'],
                 ),
               );
             }
             return _errorRoute();
 
-          // 🔹 Chauffeur
+          // Chauffeur
           case '/ticket':
-            final token = args?['token'];
-            if (token is String) {
+            if (args?['token'] is String) {
               return MaterialPageRoute(
-                builder: (_) => TicketScreen(token: token),
+                builder: (_) => TicketScreen(token: args!['token']),
               );
             }
             return _errorRoute();
-
           case '/ticket-list':
-            final token = args?['token'];
-            if (token is String) {
+            if (args?['token'] is String) {
               return MaterialPageRoute(
-                builder: (_) => TicketHistoryScreen(token: token),
+                builder: (_) => TicketHistoryScreen(token: args!['token']),
               );
             }
             return _errorRoute();
-
           case '/ticket-list-agent':
-            final token = args?['token'];
-            final agentId = args?['userId'];
-            if (token is String && agentId is String) {
+            if (args?['token'] is String && args?['userId'] is String) {
               return MaterialPageRoute(
-                builder: (_) =>
-                    TicketListAgentScreen(token: token, agentId: agentId),
+                builder: (_) => TicketListAgentScreen(
+                  token: args!['token'],
+                  agentId: args['userId'],
+                ),
               );
             }
             return _errorRoute();

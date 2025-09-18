@@ -6,7 +6,6 @@ import 'package:faso_carbu_mobile/db/database_helper.dart';
 import 'package:faso_carbu_mobile/models/user_model.dart';
 import 'package:faso_carbu_mobile/services/api_service.dart';
 import 'package:faso_carbu_mobile/services/notification_service.dart';
-
 import 'package:logger/logger.dart';
 
 var logger = Logger();
@@ -64,9 +63,10 @@ class _LoginScreenState extends State<LoginScreen>
       _loading = true;
       _error = null;
     });
-    logger.i('➡️ Envoi POST vers : $baseUrl/auth/login');
+
+    logger.i('➡️ POST vers : $baseUrl/auth/login');
     logger.i(
-      '📦 Données envoyées : ${jsonEncode({'email': email, 'motDePasse': password})}',
+      '📦 Payload : ${jsonEncode({'email': email, 'motDePasse': password})}',
     );
 
     try {
@@ -75,6 +75,7 @@ class _LoginScreenState extends State<LoginScreen>
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'motDePasse': password}),
       );
+
       logger.i('Réponse brute : ${response.body}');
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -84,83 +85,42 @@ class _LoginScreenState extends State<LoginScreen>
         final role = data['role'];
         final nom = data['nom'] ?? '';
         final prenom = data['prenom'] ?? '';
-        final userId = data['id'] ?? '';
+        final userId = data['id']?.toString() ?? '';
 
         logger.i("🆔 ID utilisateur reçu: $userId");
 
-        // 🔹 Envoi du token FCM au backend
+        // 🔹 Envoi du token FCM
         final notificationService = NotificationService();
         await notificationService.updateFcmToken(
-          userId: userId.toString(),
+          userId: userId,
           jwtToken: token,
         );
 
-        // Sauvegarde token
-        try {
-          await ApiService.saveToken(token);
-          logger.i("Token sauvegardé avec succès");
-        } catch (e, st) {
-          logger.e(
-            "Erreur lors de la sauvegarde du token : $e",
-            error: e,
-            stackTrace: st,
-          );
-          setState(
-            () =>
-                _error = "Erreur interne : impossible de sauvegarder le token",
-          );
-          return;
-        }
+        // 🔹 Sauvegarde du token
+        await ApiService.saveToken(token);
 
-        // Sauvegarde SharedPreferences
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('email', email);
-          await prefs.setString('role', role);
-          await prefs.setString('nom', nom);
-          await prefs.setString('prenom', prenom);
-          await prefs.setString('userId', userId.toString());
-          logger.i("SharedPreferences sauvegardées");
-        } catch (e, st) {
-          logger.e(
-            "Erreur lors de la sauvegarde dans SharedPreferences : $e",
-            error: e,
-            stackTrace: st,
-          );
-          setState(
-            () => _error =
-                "Erreur interne : impossible de sauvegarder les données",
-          );
-          return;
-        }
+        // 🔹 Sauvegarde SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('email', email);
+        await prefs.setString('role', role);
+        await prefs.setString('nom', nom);
+        await prefs.setString('prenom', prenom);
+        await prefs.setString('userId', userId);
 
-        // Sauvegarde en base locale
-        try {
-          final user = UserModel(
-            email: email,
-            motDePasse: password,
-            role: role,
-            nom: nom,
-            prenom: prenom,
-            isSynced: 1,
-          );
-          await DatabaseHelper.instance.saveUser(user);
-
-          logger.i("Utilisateur inséré en base locale");
-        } catch (e, st) {
-          logger.e(
-            "Erreur lors de l'insertion en base locale : $e",
-            error: e,
-            stackTrace: st,
-          );
-          setState(
-            () => _error =
-                "Erreur interne : impossible de sauvegarder localement",
-          );
-          return;
-        }
+        // 🔹 Sauvegarde locale (SQLite)
+        final user = UserModel(
+          email: email,
+          motDePasse: password,
+          role: role,
+          nom: nom,
+          prenom: prenom,
+          isSynced: 1,
+        );
+        await DatabaseHelper.instance.saveUser(user);
 
         if (!mounted) return;
+
+        // 🔹 Navigation vers MainScreen
         Navigator.pushReplacementNamed(
           context,
           '/home',
@@ -170,6 +130,7 @@ class _LoginScreenState extends State<LoginScreen>
             'token': token,
             'nom': nom,
             'prenom': prenom,
+            'userId': userId, // ✅ ajouté pour cohérence
           },
         );
       } else {
@@ -177,13 +138,16 @@ class _LoginScreenState extends State<LoginScreen>
         throw Exception("Connexion échouée");
       }
     } catch (e) {
-      logger.e("Exception attrapée lors du login : $e");
+      logger.e("❌ Exception lors du login : $e");
+
+      // 🔹 Tentative de connexion hors ligne
       final localUser = await DatabaseHelper.instance.getUserByEmailAndPassword(
         email,
         password,
       );
 
       if (localUser != null) {
+        logger.w("⚠️ Mode hors ligne activé — utilisateur trouvé en local");
         if (!mounted) return;
         Navigator.pushReplacementNamed(
           context,
@@ -194,6 +158,7 @@ class _LoginScreenState extends State<LoginScreen>
             'token': '',
             'nom': localUser.nom,
             'prenom': localUser.prenom,
+            'userId': '', // hors-ligne pas d’ID dispo
           },
         );
       } else {
@@ -210,7 +175,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromRGBO(163, 160, 160, 1), // fond noir
+      backgroundColor: const Color.fromRGBO(163, 160, 160, 1),
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: Center(
@@ -219,6 +184,7 @@ class _LoginScreenState extends State<LoginScreen>
             child: SingleChildScrollView(
               child: Column(
                 children: [
+                  // Logo circulaire
                   Container(
                     width: 100,
                     height: 100,
@@ -239,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                   const SizedBox(height: 24),
 
-                  // 🔹 Carte de login
+                  // Carte login
                   Card(
                     color: Colors.grey.shade900,
                     elevation: 8,
@@ -257,7 +223,7 @@ class _LoginScreenState extends State<LoginScreen>
                           const Icon(
                             Icons.local_gas_station,
                             size: 64,
-                            color: Color.fromARGB(255, 240, 239, 239),
+                            color: Colors.white70,
                           ),
                           const SizedBox(height: 16),
                           const Text(
