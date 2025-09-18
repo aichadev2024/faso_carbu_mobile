@@ -26,11 +26,13 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  late List<Widget> _screens;
+  late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
+    logger.i("🔑 Token courant : ${widget.token}");
+
     _screens = [
       HomeScreen(
         userEmail: widget.email,
@@ -62,7 +64,6 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 🔹 On enlève l’AppBar ici
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         child: _screens[_selectedIndex],

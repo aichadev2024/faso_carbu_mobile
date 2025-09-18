@@ -2,14 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:faso_carbu_mobile/db/database_helper.dart';
-import 'package:faso_carbu_mobile/models/user_model.dart';
-import 'package:faso_carbu_mobile/services/api_service.dart';
-import 'package:faso_carbu_mobile/services/notification_service.dart';
 import 'package:logger/logger.dart';
+import 'main_screen.dart';
 
 var logger = Logger();
-
 const String baseUrl = 'https://faso-carbu-backend-2.onrender.com/api';
 
 class LoginScreen extends StatefulWidget {
@@ -25,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen>
   final _passwordController = TextEditingController();
   String? _error;
   bool _loading = false;
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -64,111 +61,64 @@ class _LoginScreenState extends State<LoginScreen>
       _error = null;
     });
 
-    logger.i('➡️ POST vers : $baseUrl/auth/login');
-    logger.i(
-      '📦 Payload : ${jsonEncode({'email': email, 'motDePasse': password})}',
-    );
-
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'motDePasse': password}),
+        Uri.parse("$baseUrl/auth/login"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": email, "motDePasse": password}),
       );
 
-      logger.i('Réponse brute : ${response.body}');
+      if (!mounted) return;
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final data = jsonDecode(response.body);
 
-        final token = data['token'];
-        final role = data['role'];
+        // Récupération des données
+        final token = data['token'] ?? '';
+        final userId = data['id'] ?? '';
+        final userEmail = data['email'] ?? email;
+        final userRole = data['role'] ?? '';
         final nom = data['nom'] ?? '';
         final prenom = data['prenom'] ?? '';
-        final userId = data['id']?.toString() ?? '';
 
-        logger.i("🆔 ID utilisateur reçu: $userId");
-
-        // 🔹 Envoi du token FCM
-        final notificationService = NotificationService();
-        await notificationService.updateFcmToken(
-          userId: userId,
-          jwtToken: token,
-        );
-
-        // 🔹 Sauvegarde du token
-        await ApiService.saveToken(token);
-
-        // 🔹 Sauvegarde SharedPreferences
+        // Sauvegarde du token et info utilisateur
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('email', email);
-        await prefs.setString('role', role);
-        await prefs.setString('nom', nom);
-        await prefs.setString('prenom', prenom);
-        await prefs.setString('userId', userId);
+        await prefs.setString("auth_token", token);
+        await prefs.setString("userId", userId);
+        await prefs.setString("email", userEmail);
+        await prefs.setString("role", userRole);
+        await prefs.setString("nom", nom);
+        await prefs.setString("prenom", prenom);
 
-        // 🔹 Sauvegarde locale (SQLite)
-        final user = UserModel(
-          email: email,
-          motDePasse: password,
-          role: role,
-          nom: nom,
-          prenom: prenom,
-          isSynced: 1,
-        );
-        await DatabaseHelper.instance.saveUser(user);
+        logger.i("Connexion réussie : $data");
 
         if (!mounted) return;
 
-        // 🔹 Navigation vers MainScreen
-        Navigator.pushReplacementNamed(
+        Navigator.pushReplacement(
           context,
-          '/home',
-          arguments: {
-            'userEmail': email,
-            'userRole': role,
-            'token': token,
-            'nom': nom,
-            'prenom': prenom,
-            'userId': userId, // ✅ ajouté pour cohérence
-          },
+          MaterialPageRoute(
+            builder: (_) => MainScreen(
+              email: userEmail,
+              role: userRole,
+              token: token,
+              nom: nom,
+              prenom: prenom,
+            ),
+          ),
         );
       } else {
-        logger.e("Échec de connexion — Code: ${response.statusCode}");
-        throw Exception("Connexion échouée");
+        final message =
+            jsonDecode(response.body)['message'] ?? "Identifiants incorrects";
+        setState(() => _error = message);
       }
     } catch (e) {
-      logger.e("❌ Exception lors du login : $e");
-
-      // 🔹 Tentative de connexion hors ligne
-      final localUser = await DatabaseHelper.instance.getUserByEmailAndPassword(
-        email,
-        password,
+      logger.e("Exception login : $e");
+      setState(
+        () => _error =
+            "Connexion impossible : vérifiez internet ou vos identifiants.",
       );
-
-      if (localUser != null) {
-        logger.w("⚠️ Mode hors ligne activé — utilisateur trouvé en local");
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(
-          context,
-          '/home',
-          arguments: {
-            'userEmail': localUser.email,
-            'userRole': localUser.role,
-            'token': '',
-            'nom': localUser.nom,
-            'prenom': localUser.prenom,
-            'userId': '', // hors-ligne pas d’ID dispo
-          },
-        );
-      } else {
-        setState(
-          () => _error =
-              "Connexion impossible : vérifiez internet ou vos identifiants.",
-        );
-      }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
