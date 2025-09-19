@@ -9,6 +9,14 @@ import 'package:logger/logger.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 
+// ⚠️ Importe bien tes écrans ici
+import 'package:faso_carbu_mobile/screens/ticket_screen.dart';
+import 'package:faso_carbu_mobile/screens/ticket_history_screen.dart';
+import 'package:faso_carbu_mobile/screens/scan_qr_screen.dart';
+import 'package:faso_carbu_mobile/screens/ticket_list_agent_screen.dart';
+import 'package:faso_carbu_mobile/screens/agents_list_screen.dart';
+import 'package:faso_carbu_mobile/screens/carburants_list_screen.dart';
+
 var logger = Logger();
 
 class HomeScreen extends StatefulWidget {
@@ -30,6 +38,7 @@ class HomeScreen extends StatefulWidget {
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
+// ... tes imports restent identiques ...
 
 class _HomeScreenState extends State<HomeScreen> {
   File? _profileImage;
@@ -42,14 +51,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _initHome() async {
     logger.i("🔹 Initialisation HomeScreen...");
-
     await ApiService.syncCarburants();
-    logger.i("🔹 Carburants synchronisés.");
-
     await _loadProfileImage();
-    logger.i("🔹 Image de profil chargée: ${_profileImage?.path}");
-
-    // Envoi du token FCM
     await envoyerTokenFCMAuBackend();
   }
 
@@ -57,15 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       FirebaseMessaging messaging = FirebaseMessaging.instance;
       String? fcmToken = await messaging.getToken();
-      logger.i("🔹 Token FCM récupéré: $fcmToken");
-
-      if (fcmToken == null) {
-        logger.w("⚠️ Token FCM est null, rien à envoyer.");
-        return;
-      }
-
-      final payload = jsonEncode({'fcmToken': fcmToken});
-      logger.i("🔹 Payload envoyé au backend: $payload");
+      if (fcmToken == null) return;
 
       final response = await http.post(
         Uri.parse(
@@ -75,30 +70,22 @@ class _HomeScreenState extends State<HomeScreen> {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.token}',
         },
-        body: payload,
+        body: jsonEncode({'fcmToken': fcmToken}),
       );
 
-      logger.i("🔹 Status code du backend: ${response.statusCode}");
-      logger.i("🔹 Body du backend: ${response.body}");
-
-      if (response.statusCode == 200) {
-        logger.i("✅ Token FCM envoyé au backend !");
-      } else {
-        logger.e("❌ Erreur en envoyant le token FCM : ${response.body}");
+      if (response.statusCode != 200) {
+        logger.e("Erreur en envoyant le token FCM : ${response.body}");
       }
     } catch (e, s) {
-      logger.e("❌ Exception pendant l’envoi du token FCM : $e");
-      logger.e("Stacktrace : $s");
+      logger.e("Exception pendant l’envoi du token FCM : $e\n$s");
     }
   }
 
   Future<void> _loadProfileImage() async {
     final prefs = await SharedPreferences.getInstance();
-    String? imagePath = prefs.getString('profile_image_path');
-    if (imagePath != null && File(imagePath).existsSync()) {
-      setState(() {
-        _profileImage = File(imagePath);
-      });
+    String? path = prefs.getString('profile_image_path');
+    if (path != null && File(path).existsSync()) {
+      setState(() => _profileImage = File(path));
     }
   }
 
@@ -106,15 +93,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
-      final File imageTemp = File(pickedFile.path);
       final appDir = await getApplicationDocumentsDirectory();
-      final fileName = 'profile.jpg';
-      final savedImage = await imageTemp.copy('${appDir.path}/$fileName');
+      final savedImage = await File(
+        pickedFile.path,
+      ).copy('${appDir.path}/profile.jpg');
 
-      setState(() {
-        _profileImage = savedImage;
-      });
-
+      setState(() => _profileImage = savedImage);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('profile_image_path', savedImage.path);
     }
@@ -133,23 +117,77 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void navigate(
-    BuildContext context,
-    String routeName, {
-    Map<String, dynamic>? extraArgs,
-  }) {
-    final Map<String, dynamic> args = {
-      'userEmail': widget.userEmail,
-      'userRole': widget.userRole,
-      'token': widget.token,
-      'nom': widget.nom,
-      'prenom': widget.prenom,
-      ...?extraArgs,
-    };
+  // 🔹 Navigation corrigée
+  void navigate(BuildContext context, String route) {
+    switch (route) {
+      case '/ticket':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => TicketScreen(token: widget.token)),
+        );
+        break;
 
-    logger.i("➡️ Navigation vers $routeName avec args: $args");
+      case '/ticket-list':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TicketHistoryScreen(token: widget.token),
+          ),
+        );
+        break;
 
-    Navigator.pushNamed(context, routeName, arguments: args);
+      case '/scan-qr':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ScanQrScreen(
+              token: widget.token,
+              userId: widget.userEmail, // ✅ ajouter userId
+            ),
+          ),
+        );
+        break;
+
+      case '/ticket-list-agent':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TicketListAgentScreen(
+              token: widget.token,
+              agentId: widget.userEmail,
+            ),
+          ),
+        );
+        break;
+
+      case '/agents-list':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AgentsListScreen(
+              token: widget.token,
+              adminStationId:
+                  widget.userEmail, // ✅ ici mettre l’ID de l’admin de station
+            ),
+          ),
+        );
+        break;
+
+      case '/carburants-list':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CarburantsListScreen(
+              token: widget.token,
+              adminStationId: widget.userEmail, // ✅ pareil
+            ),
+          ),
+        );
+        break;
+
+      default:
+        logger.w("Route inconnue: $route");
+    }
   }
 
   @override
@@ -158,9 +196,9 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
+            colors: [Colors.red.shade700, Colors.red.shade100, Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.red.shade700, Colors.red.shade100, Colors.white],
           ),
         ),
         child: SafeArea(
@@ -257,7 +295,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 const SizedBox(height: 20),
 
-                // Grille
+                // Grille des fonctionnalités
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: GridView.count(
@@ -280,27 +318,23 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Widget> _buildTilesForRole(BuildContext context) {
     final List<Map<String, dynamic>> tiles = [];
 
+    // Admin Station
     if (widget.userRole == 'ROLE_ADMIN_STATION') {
       tiles.addAll([
         {
           'icon': Icons.people,
           'label': 'Gérer Agents',
           'route': '/agents-list',
-          'extraArgs': {
-            'adminStationId': widget.nom,
-          }, // à remplacer par l’ID réel
         },
         {
           'icon': Icons.local_gas_station,
           'label': 'Gérer Carburants',
           'route': '/carburants-list',
-          'extraArgs': {
-            'adminStationId': widget.nom,
-          }, // à remplacer par l’ID réel
         },
       ]);
     }
 
+    // Chauffeur
     if (widget.userRole == 'ROLE_CHAUFFEUR') {
       tiles.addAll([
         {
@@ -316,6 +350,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ]);
     }
 
+    // Agent Station
     if (widget.userRole == 'ROLE_AGENT_STATION') {
       tiles.addAll([
         {'icon': Icons.qr_code, 'label': 'Scanner QR', 'route': '/scan-qr'},
@@ -323,52 +358,50 @@ class _HomeScreenState extends State<HomeScreen> {
           'icon': Icons.history_edu,
           'label': 'Historique Tickets',
           'route': '/ticket-list-agent',
-          'extraArgs': {'userId': widget.userEmail}, // important !
         },
       ]);
     }
 
-    return tiles.map((tile) {
-      return GestureDetector(
-        onTap: () => navigate(
-          context,
-          tile['route'],
-          extraArgs: tile['extraArgs'] as Map<String, dynamic>?,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.red.shade100,
-                blurRadius: 12,
-                spreadRadius: 2,
-                offset: const Offset(0, 6),
+    // Création des widgets
+    return tiles
+        .map(
+          (tile) => GestureDetector(
+            onTap: () => navigate(context, tile['route']),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.shade100,
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
-            ],
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Colors.red.shade700,
+                    radius: 30,
+                    child: Icon(tile['icon'], color: Colors.white, size: 30),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    tile['label'],
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                backgroundColor: Colors.red.shade700,
-                radius: 30,
-                child: Icon(tile['icon'], color: Colors.white, size: 30),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                tile['label'],
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }).toList();
+        )
+        .toList();
   }
 }
