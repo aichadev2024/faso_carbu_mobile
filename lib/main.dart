@@ -112,6 +112,7 @@ class FasoCarbuApp extends StatelessWidget {
                 token: args['token'] ?? '',
                 nom: args['nom'] ?? '',
                 prenom: args['prenom'] ?? '',
+                userId: args['userId'] ?? '',
               ),
             );
 
