@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
 import 'main_screen.dart';
+import 'ForgotPasswordScreen.dart';
 
 var logger = Logger();
 const String baseUrl = 'https://faso-carbu-backend-2.onrender.com/api';
@@ -268,6 +269,27 @@ class _LoginScreenState extends State<LoginScreen>
                                   ),
                                 ),
                           const SizedBox(height: 10),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ForgotPasswordScreen(),
+                                  ),
+                                );
+                              },
+
+                              child: const Text(
+                                'Mot de passe oublié?',
+                                style: TextStyle(color: Colors.blue),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
                         ],
                       ),
                     ),
