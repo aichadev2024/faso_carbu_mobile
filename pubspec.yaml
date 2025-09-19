@@ -33,9 +33,9 @@ flutter:
 
   assets:
     - assets/images/default_avatar.png
-    - assets/images/agent.svg
-    - assets/images/driver.svg
-    - assets/images/station_fuel.svg
+    - assets/images/agent.SVG
+    - assets/images/driver.SVG
+    - assets/images/station_fuel.SVG
     - assets/icons/home.svg
     - assets/icons/profile.svg
     - assets/icons/notif.svg

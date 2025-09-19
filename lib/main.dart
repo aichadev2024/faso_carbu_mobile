@@ -94,7 +94,6 @@ class FasoCarbuApp extends StatelessWidget {
           "➡️ onGenerateRoute appelée avec route: ${settings.name}, args: ${settings.arguments}",
         );
 
-        // Sécuriser la récupération des arguments
         final Map<String, dynamic> args =
             (settings.arguments as Map<String, dynamic>?) ?? {};
 
@@ -106,148 +105,97 @@ class FasoCarbuApp extends StatelessWidget {
             return MaterialPageRoute(builder: (_) => const LoginScreen());
 
           case '/home':
-            final args = (settings.arguments as Map<String, dynamic>?) ?? {};
-            final token = args['token']?.toString() ?? '';
-            final userEmail = args['userEmail'] ?? '';
-            final userRole = args['userRole'] ?? '';
-            final nom = args['nom'] ?? '';
-            final prenom = args['prenom'] ?? '';
+            return MaterialPageRoute(
+              builder: (_) => MainScreen(
+                email: args['userEmail'] ?? '',
+                role: args['userRole'] ?? '',
+                token: args['token'] ?? '',
+                nom: args['nom'] ?? '',
+                prenom: args['prenom'] ?? '',
+              ),
+            );
 
-            if (token.isNotEmpty &&
-                userEmail.isNotEmpty &&
-                userRole.isNotEmpty) {
-              return MaterialPageRoute(
-                builder: (_) => MainScreen(
-                  email: userEmail,
-                  role: userRole,
-                  token: token,
-                  nom: nom,
-                  prenom: prenom,
-                ),
-              );
-            } else {
-              return _errorRoute('/home', args);
-            }
+          case '/ticket':
+            return MaterialPageRoute(
+              builder: (_) => TicketScreen(token: args['token'] ?? ''),
+            );
+
+          case '/ticket-list':
+            return MaterialPageRoute(
+              builder: (_) => TicketHistoryScreen(token: args['token'] ?? ''),
+            );
+
+          case '/ticket-list-agent':
+            return MaterialPageRoute(
+              builder: (_) => TicketListAgentScreen(
+                token: args['token'] ?? '',
+                agentId: args['userId'] ?? '',
+              ),
+            );
 
           case '/scan-qr':
-            final token = args['token']?.toString() ?? '';
-            final userId = args['userId']?.toString() ?? '';
-            if (token.isNotEmpty && userId.isNotEmpty) {
-              return MaterialPageRoute(
-                builder: (_) => ScanQrScreen(token: token, userId: userId),
-              );
-            }
-            return _errorRoute('/scan-qr', args);
+            return MaterialPageRoute(
+              builder: (_) => ScanQrScreen(
+                token: args['token'] ?? '',
+                userId: args['userId'] ?? '',
+              ),
+            );
+
+          // Admin Station
+          case '/agents-list':
+            return MaterialPageRoute(
+              builder: (_) => AgentsListScreen(
+                token: args['token'] ?? '',
+                adminStationId: args['adminStationId'] ?? '',
+              ),
+            );
+
+          case '/carburants-list':
+            return MaterialPageRoute(
+              builder: (_) => CarburantsListScreen(
+                token: args['token'] ?? '',
+                adminStationId: args['adminStationId'] ?? '',
+              ),
+            );
+
+          case '/creer-agent_station':
+            return MaterialPageRoute(
+              builder: (_) => CreerAgentScreen(
+                token: args['token'] ?? '',
+                adminStationId: args['adminStationId'] ?? '',
+              ),
+            );
+
+          case '/creer-carburant':
+            return MaterialPageRoute(
+              builder: (_) => CreerCarburantScreen(
+                token: args['token'] ?? '',
+                adminStationId: args['adminStationId'] ?? '',
+              ),
+            );
 
           case '/profil':
-            final token = args['token']?.toString() ?? '';
-            if (token.isNotEmpty) {
-              return MaterialPageRoute(
-                builder: (_) => ProfilScreen(
-                  userEmail: args['userEmail'] ?? '',
-                  userRole: args['userRole'] ?? '',
-                  token: token,
-                  nom: args['nom'] ?? '',
-                  prenom: args['prenom'] ?? '',
-                  onLogout: () {
-                    Navigator.pushNamedAndRemoveUntil(
-                      navigatorKey.currentContext!,
-                      '/login',
-                      (route) => false,
-                    );
-                  },
-                ),
-              );
-            }
-            return _errorRoute('/profil', args);
+            return MaterialPageRoute(
+              builder: (_) => ProfilScreen(
+                userEmail: args['userEmail'] ?? '',
+                userRole: args['userRole'] ?? '',
+                token: args['token'] ?? '',
+                nom: args['nom'] ?? '',
+                prenom: args['prenom'] ?? '',
+                onLogout: () {
+                  Navigator.pushNamedAndRemoveUntil(
+                    navigatorKey.currentContext!,
+                    '/login',
+                    (route) => false,
+                  );
+                },
+              ),
+            );
 
           case '/notifications':
             return MaterialPageRoute(
               builder: (_) => const NotificationScreen(),
             );
-
-          // Admin Station
-          case '/agents-list':
-            final token = args['token']?.toString() ?? '';
-            final adminStationId = args['adminStationId']?.toString() ?? '';
-            if (token.isNotEmpty && adminStationId.isNotEmpty) {
-              return MaterialPageRoute(
-                builder: (_) => AgentsListScreen(
-                  token: token,
-                  adminStationId: adminStationId,
-                ),
-              );
-            }
-            return _errorRoute('/agents-list', args);
-
-          case '/creer-agent_station':
-            final token = args['token']?.toString() ?? '';
-            final adminStationId = args['adminStationId']?.toString() ?? '';
-            if (token.isNotEmpty && adminStationId.isNotEmpty) {
-              return MaterialPageRoute(
-                builder: (_) => CreerAgentScreen(
-                  token: token,
-                  adminStationId: adminStationId,
-                ),
-              );
-            }
-            return _errorRoute('/creer-agent_station', args);
-
-          case '/carburants-list':
-            final token = args['token']?.toString() ?? '';
-            final adminStationId = args['adminStationId']?.toString() ?? '';
-            if (token.isNotEmpty && adminStationId.isNotEmpty) {
-              return MaterialPageRoute(
-                builder: (_) => CarburantsListScreen(
-                  token: token,
-                  adminStationId: adminStationId,
-                ),
-              );
-            }
-            return _errorRoute('/carburants-list', args);
-
-          case '/creer-carburant':
-            final token = args['token']?.toString() ?? '';
-            final adminStationId = args['adminStationId']?.toString() ?? '';
-            if (token.isNotEmpty && adminStationId.isNotEmpty) {
-              return MaterialPageRoute(
-                builder: (_) => CreerCarburantScreen(
-                  token: token,
-                  adminStationId: adminStationId,
-                ),
-              );
-            }
-            return _errorRoute('/creer-carburant', args);
-
-          // Chauffeur
-          case '/ticket':
-            final token = args['token']?.toString() ?? '';
-            if (token.isNotEmpty) {
-              return MaterialPageRoute(
-                builder: (_) => TicketScreen(token: token),
-              );
-            }
-            return _errorRoute('/ticket', args);
-
-          case '/ticket-list':
-            final token = args['token']?.toString() ?? '';
-            if (token.isNotEmpty) {
-              return MaterialPageRoute(
-                builder: (_) => TicketHistoryScreen(token: token),
-              );
-            }
-            return _errorRoute('/ticket-list', args);
-
-          case '/ticket-list-agent':
-            final token = args['token']?.toString() ?? '';
-            final agentId = args['userId']?.toString() ?? '';
-            if (token.isNotEmpty && agentId.isNotEmpty) {
-              return MaterialPageRoute(
-                builder: (_) =>
-                    TicketListAgentScreen(token: token, agentId: agentId),
-              );
-            }
-            return _errorRoute('/ticket-list-agent', args);
 
           default:
             return _errorRoute(settings.name, args);

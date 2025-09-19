@@ -32,49 +32,64 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String? userId;
   File? _profileImage;
 
   @override
   void initState() {
     super.initState();
-    loadUserId();
-    ApiService.syncCarburants();
-    _loadProfileImage();
-    envoyerTokenFCMAuBackend();
+    _initHome();
+  }
+
+  Future<void> _initHome() async {
+    logger.i("🔹 Initialisation HomeScreen...");
+
+    await ApiService.syncCarburants();
+    logger.i("🔹 Carburants synchronisés.");
+
+    await _loadProfileImage();
+    logger.i("🔹 Image de profil chargée: ${_profileImage?.path}");
+
+    // Envoi du token FCM
+    await envoyerTokenFCMAuBackend();
   }
 
   Future<void> envoyerTokenFCMAuBackend() async {
     try {
       FirebaseMessaging messaging = FirebaseMessaging.instance;
       String? fcmToken = await messaging.getToken();
-      if (fcmToken != null) {
-        final response = await http.post(
-          Uri.parse(
-            'https://faso-carbu-backend-2.onrender.com/api/utilisateurs/update-token',
-          ),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ${widget.token}',
-          },
-          body: jsonEncode({'fcmToken': fcmToken}),
-        );
-        if (response.statusCode == 200) {
-          logger.i("✅ Token FCM envoyé au backend !");
-        } else {
-          logger.e("❌ Erreur en envoyant le token FCM : ${response.body}");
-        }
-      }
-    } catch (e) {
-      logger.e("❌ Exception pendant l’envoi du token FCM : $e");
-    }
-  }
+      logger.i("🔹 Token FCM récupéré: $fcmToken");
 
-  Future<void> loadUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      userId = prefs.getString('userId');
-    });
+      if (fcmToken == null) {
+        logger.w("⚠️ Token FCM est null, rien à envoyer.");
+        return;
+      }
+
+      final payload = jsonEncode({'fcmToken': fcmToken});
+      logger.i("🔹 Payload envoyé au backend: $payload");
+
+      final response = await http.post(
+        Uri.parse(
+          'https://faso-carbu-backend-2.onrender.com/api/utilisateurs/update-token',
+        ),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+        body: payload,
+      );
+
+      logger.i("🔹 Status code du backend: ${response.statusCode}");
+      logger.i("🔹 Body du backend: ${response.body}");
+
+      if (response.statusCode == 200) {
+        logger.i("✅ Token FCM envoyé au backend !");
+      } else {
+        logger.e("❌ Erreur en envoyant le token FCM : ${response.body}");
+      }
+    } catch (e, s) {
+      logger.e("❌ Exception pendant l’envoi du token FCM : $e");
+      logger.e("Stacktrace : $s");
+    }
   }
 
   Future<void> _loadProfileImage() async {
@@ -100,8 +115,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _profileImage = savedImage;
       });
 
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      prefs.setString('profile_image_path', savedImage.path);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('profile_image_path', savedImage.path);
     }
   }
 
@@ -118,22 +133,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void navigate(BuildContext context, String routeName) {
+  void navigate(
+    BuildContext context,
+    String routeName, {
+    Map<String, dynamic>? extraArgs,
+  }) {
     final Map<String, dynamic> args = {
       'userEmail': widget.userEmail,
       'userRole': widget.userRole,
       'token': widget.token,
       'nom': widget.nom,
       'prenom': widget.prenom,
+      ...?extraArgs,
     };
 
-    if (widget.userRole == 'ROLE_ADMIN_STATION') {
-      args['adminStationId'] = userId;
-    }
-
-    if (widget.userRole == 'ROLE_AGENT_STATION') {
-      args['userId'] = userId;
-    }
+    logger.i("➡️ Navigation vers $routeName avec args: $args");
 
     Navigator.pushNamed(context, routeName, arguments: args);
   }
@@ -153,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                // 🔹 Header
+                // Header
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -182,19 +196,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 const SizedBox(height: 10),
 
-                // 🔹 Carte profil
+                // Carte profil
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
                         color: Colors.black12,
                         blurRadius: 10,
                         spreadRadius: 2,
-                        offset: const Offset(0, 4),
+                        offset: Offset(0, 4),
                       ),
                     ],
                   ),
@@ -243,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 const SizedBox(height: 20),
 
-                // 🔹 Grille
+                // Grille
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: GridView.count(
@@ -272,11 +286,17 @@ class _HomeScreenState extends State<HomeScreen> {
           'icon': Icons.people,
           'label': 'Gérer Agents',
           'route': '/agents-list',
+          'extraArgs': {
+            'adminStationId': widget.nom,
+          }, // à remplacer par l’ID réel
         },
         {
           'icon': Icons.local_gas_station,
           'label': 'Gérer Carburants',
           'route': '/carburants-list',
+          'extraArgs': {
+            'adminStationId': widget.nom,
+          }, // à remplacer par l’ID réel
         },
       ]);
     }
@@ -303,13 +323,18 @@ class _HomeScreenState extends State<HomeScreen> {
           'icon': Icons.history_edu,
           'label': 'Historique Tickets',
           'route': '/ticket-list-agent',
+          'extraArgs': {'userId': widget.userEmail}, // important !
         },
       ]);
     }
 
     return tiles.map((tile) {
       return GestureDetector(
-        onTap: () => navigate(context, tile['route']),
+        onTap: () => navigate(
+          context,
+          tile['route'],
+          extraArgs: tile['extraArgs'] as Map<String, dynamic>?,
+        ),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
