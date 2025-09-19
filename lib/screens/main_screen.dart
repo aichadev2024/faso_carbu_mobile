@@ -3,6 +3,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'home_screen.dart';
 import 'profil_screen.dart';
 import 'notification_screen.dart';
+import 'package:logger/logger.dart';
+
+var logger = Logger();
 
 class MainScreen extends StatefulWidget {
   final String email;
@@ -10,6 +13,7 @@ class MainScreen extends StatefulWidget {
   final String token;
   final String nom;
   final String prenom;
+  final String userId; // ⚡ Champ obligatoire pour le backend
 
   const MainScreen({
     super.key,
@@ -18,6 +22,7 @@ class MainScreen extends StatefulWidget {
     required this.token,
     required this.nom,
     required this.prenom,
+    required this.userId,
   });
 
   @override
@@ -40,7 +45,7 @@ class _MainScreenState extends State<MainScreen> {
         token: widget.token,
         nom: widget.nom,
         prenom: widget.prenom,
-        userId: widget.email, // ⚡ Ajout du paramètre obligatoire
+        userId: widget.userId, // ✅ UUID correct
       ),
       ProfilScreen(
         userEmail: widget.email,
