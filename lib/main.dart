@@ -12,7 +12,7 @@ import 'package:faso_carbu_mobile/screens/ticket_screen.dart';
 import 'package:faso_carbu_mobile/screens/ticket_history_screen.dart';
 import 'package:faso_carbu_mobile/screens/carburants_list_screen.dart';
 import 'package:faso_carbu_mobile/screens/creer_carburant_screen.dart';
-import 'package:faso_carbu_mobile/screens/ticket-list-agent.dart';
+import 'package:faso_carbu_mobile/screens/ticket_list_agent_screen.dart';
 import 'package:faso_carbu_mobile/screens/onboarding_screen.dart';
 import 'package:logger/logger.dart';
 

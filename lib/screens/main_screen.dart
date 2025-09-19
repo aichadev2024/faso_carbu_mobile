@@ -40,6 +40,7 @@ class _MainScreenState extends State<MainScreen> {
         token: widget.token,
         nom: widget.nom,
         prenom: widget.prenom,
+        userId: widget.email, // ⚡ Ajout du paramètre obligatoire
       ),
       ProfilScreen(
         userEmail: widget.email,

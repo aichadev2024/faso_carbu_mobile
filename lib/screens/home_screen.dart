@@ -9,7 +9,7 @@ import 'package:logger/logger.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 
-// ⚠️ Importe bien tes écrans ici
+// ⚠️ Importe tes écrans ici
 import 'package:faso_carbu_mobile/screens/ticket_screen.dart';
 import 'package:faso_carbu_mobile/screens/ticket_history_screen.dart';
 import 'package:faso_carbu_mobile/screens/scan_qr_screen.dart';
@@ -25,6 +25,7 @@ class HomeScreen extends StatefulWidget {
   final String token;
   final String nom;
   final String prenom;
+  final String userId; // ⚡ UUID pour les routes backend
 
   const HomeScreen({
     super.key,
@@ -33,12 +34,12 @@ class HomeScreen extends StatefulWidget {
     required this.token,
     required this.nom,
     required this.prenom,
+    required this.userId, // ⚡ obligatoire
   });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
-// ... tes imports restent identiques ...
 
 class _HomeScreenState extends State<HomeScreen> {
   File? _profileImage;
@@ -117,7 +118,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // 🔹 Navigation corrigée
   void navigate(BuildContext context, String route) {
     switch (route) {
       case '/ticket':
@@ -142,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(
             builder: (_) => ScanQrScreen(
               token: widget.token,
-              userId: widget.userEmail, // ✅ ajouter userId
+              userId: widget.userId, // ✅ UUID correct
             ),
           ),
         );
@@ -154,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(
             builder: (_) => TicketListAgentScreen(
               token: widget.token,
-              agentId: widget.userEmail,
+              agentId: widget.userId, // ✅ UUID correct
             ),
           ),
         );
@@ -166,8 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(
             builder: (_) => AgentsListScreen(
               token: widget.token,
-              adminStationId:
-                  widget.userEmail, // ✅ ici mettre l’ID de l’admin de station
+              adminStationId: widget.userId, // ✅ UUID correct pour admin
             ),
           ),
         );
@@ -179,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(
             builder: (_) => CarburantsListScreen(
               token: widget.token,
-              adminStationId: widget.userEmail, // ✅ pareil
+              adminStationId: widget.userId, // ✅ UUID correct pour admin
             ),
           ),
         );
@@ -231,9 +230,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 // Carte profil
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -292,9 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 // Grille des fonctionnalités
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -318,7 +313,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Widget> _buildTilesForRole(BuildContext context) {
     final List<Map<String, dynamic>> tiles = [];
 
-    // Admin Station
     if (widget.userRole == 'ROLE_ADMIN_STATION') {
       tiles.addAll([
         {
@@ -334,7 +328,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ]);
     }
 
-    // Chauffeur
     if (widget.userRole == 'ROLE_CHAUFFEUR') {
       tiles.addAll([
         {
@@ -350,7 +343,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ]);
     }
 
-    // Agent Station
     if (widget.userRole == 'ROLE_AGENT_STATION') {
       tiles.addAll([
         {'icon': Icons.qr_code, 'label': 'Scanner QR', 'route': '/scan-qr'},
@@ -362,7 +354,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ]);
     }
 
-    // Création des widgets
     return tiles
         .map(
           (tile) => GestureDetector(
