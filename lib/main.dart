@@ -15,6 +15,7 @@ import 'package:faso_carbu_mobile/screens/creer_carburant_screen.dart';
 import 'package:faso_carbu_mobile/screens/ticket_list_agent_screen.dart';
 import 'package:faso_carbu_mobile/screens/onboarding_screen.dart';
 import 'package:logger/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 var logger = Logger();
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -25,6 +26,28 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   logger.i(
     "🔔 Notification reçue en arrière-plan : ${message.notification?.title}",
   );
+}
+
+// Fonction de confirmation de sortie
+Future<bool> showExitConfirmation(BuildContext context) async {
+  return await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("Confirmation"),
+          content: const Text("Voulez-vous vraiment quitter l'application ?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text("Non"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text("Oui"),
+            ),
+          ],
+        ),
+      ) ??
+      false;
 }
 
 void main() async {
@@ -63,7 +86,35 @@ void main() async {
   final fcmToken = await FirebaseMessaging.instance.getToken();
   logger.i("📱 Token FCM : $fcmToken");
 
-  runApp(const FasoCarbuApp());
+  // 🔹 Vérification du onboarding et du token
+  final prefs = await SharedPreferences.getInstance();
+  final seenOnboarding = prefs.getBool('seen_onboarding') ?? false;
+  final token = prefs.getString('auth_token');
+
+  Widget startScreen;
+  if (!seenOnboarding) {
+    startScreen = OnboardingScreen(
+      onFinish: () async {
+        await prefs.setBool('seen_onboarding', true);
+        navigatorKey.currentState!.pushReplacementNamed(
+          token != null && token.isNotEmpty ? '/home' : '/login',
+        );
+      },
+    );
+  } else if (token != null && token.isNotEmpty) {
+    startScreen = const MainScreen(
+      email: '',
+      role: '',
+      token: '',
+      nom: '',
+      prenom: '',
+      userId: '',
+    );
+  } else {
+    startScreen = const LoginScreen();
+  }
+
+  runApp(FasoCarbuApp(startScreen: startScreen));
 }
 
 void _handleMessageNavigation(RemoteMessage message) {
@@ -79,129 +130,148 @@ void _handleMessageNavigation(RemoteMessage message) {
 }
 
 class FasoCarbuApp extends StatelessWidget {
-  const FasoCarbuApp({super.key});
+  final Widget startScreen;
+  const FasoCarbuApp({required this.startScreen, super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: navigatorKey,
-      debugShowCheckedModeBanner: false,
-      title: 'FasoCarbu',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      initialRoute: '/onboarding',
-      onGenerateRoute: (settings) {
-        logger.i(
-          "➡️ onGenerateRoute appelée avec route: ${settings.name}, args: ${settings.arguments}",
-        );
-
-        final Map<String, dynamic> args =
-            (settings.arguments as Map<String, dynamic>?) ?? {};
-
-        switch (settings.name) {
-          case '/onboarding':
-            return MaterialPageRoute(builder: (_) => const OnboardingScreen());
-
-          case '/login':
-            return MaterialPageRoute(builder: (_) => const LoginScreen());
-
-          case '/home':
-            return MaterialPageRoute(
-              builder: (_) => MainScreen(
-                email: args['userEmail'] ?? '',
-                role: args['userRole'] ?? '',
-                token: args['token'] ?? '',
-                nom: args['nom'] ?? '',
-                prenom: args['prenom'] ?? '',
-                userId: args['userId'] ?? '',
-              ),
-            );
-
-          case '/ticket':
-            return MaterialPageRoute(
-              builder: (_) => TicketScreen(token: args['token'] ?? ''),
-            );
-
-          case '/ticket-list':
-            return MaterialPageRoute(
-              builder: (_) => TicketHistoryScreen(token: args['token'] ?? ''),
-            );
-
-          case '/ticket-list-agent':
-            return MaterialPageRoute(
-              builder: (_) => TicketListAgentScreen(
-                token: args['token'] ?? '',
-                agentId: args['userId'] ?? '',
-              ),
-            );
-
-          case '/scan-qr':
-            return MaterialPageRoute(
-              builder: (_) => ScanQrScreen(
-                token: args['token'] ?? '',
-                userId: args['userId'] ?? '',
-              ),
-            );
-
-          // Admin Station
-          case '/agents-list':
-            return MaterialPageRoute(
-              builder: (_) => AgentsListScreen(
-                token: args['token'] ?? '',
-                adminStationId: args['adminStationId'] ?? '',
-              ),
-            );
-
-          case '/carburants-list':
-            return MaterialPageRoute(
-              builder: (_) => CarburantsListScreen(
-                token: args['token'] ?? '',
-                adminStationId: args['adminStationId'] ?? '',
-              ),
-            );
-
-          case '/creer-agent_station':
-            return MaterialPageRoute(
-              builder: (_) => CreerAgentScreen(
-                token: args['token'] ?? '',
-                adminStationId: args['adminStationId'] ?? '',
-              ),
-            );
-
-          case '/creer-carburant':
-            return MaterialPageRoute(
-              builder: (_) => CreerCarburantScreen(
-                token: args['token'] ?? '',
-                adminStationId: args['adminStationId'] ?? '',
-              ),
-            );
-
-          case '/profil':
-            return MaterialPageRoute(
-              builder: (_) => ProfilScreen(
-                userEmail: args['userEmail'] ?? '',
-                userRole: args['userRole'] ?? '',
-                token: args['token'] ?? '',
-                nom: args['nom'] ?? '',
-                prenom: args['prenom'] ?? '',
-                onLogout: () {
-                  Navigator.pushNamedAndRemoveUntil(
-                    navigatorKey.currentContext!,
-                    '/login',
-                    (route) => false,
-                  );
-                },
-              ),
-            );
-
-          case '/notifications':
-            return MaterialPageRoute(
-              builder: (_) => const NotificationScreen(),
-            );
-
-          default:
-            return _errorRoute(settings.name, args);
+    return WillPopScope(
+      onWillPop: () async {
+        // 🔹 Si le Navigator peut revenir en arrière, on laisse faire
+        if (navigatorKey.currentState?.canPop() ?? false) {
+          return true;
         }
+        // 🔹 Sinon, on est sur le startScreen → demande confirmation
+        return await showExitConfirmation(navigatorKey.currentContext!);
       },
+      child: MaterialApp(
+        navigatorKey: navigatorKey,
+        debugShowCheckedModeBanner: false,
+        title: 'FasoCarbu',
+        theme: ThemeData(primarySwatch: Colors.blue),
+        home: startScreen,
+        onGenerateRoute: (settings) {
+          logger.i(
+            "➡️ onGenerateRoute appelée avec route: ${settings.name}, args: ${settings.arguments}",
+          );
+
+          final Map<String, dynamic> args =
+              (settings.arguments as Map<String, dynamic>?) ?? {};
+
+          switch (settings.name) {
+            case '/onboarding':
+              return MaterialPageRoute(
+                builder: (_) => OnboardingScreen(
+                  onFinish: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool('seen_onboarding', true);
+                    navigatorKey.currentState!.pushReplacementNamed('/login');
+                  },
+                ),
+              );
+
+            case '/login':
+              return MaterialPageRoute(builder: (_) => const LoginScreen());
+
+            case '/home':
+              return MaterialPageRoute(
+                builder: (_) => MainScreen(
+                  email: args['userEmail'] ?? '',
+                  role: args['userRole'] ?? '',
+                  token: args['token'] ?? '',
+                  nom: args['nom'] ?? '',
+                  prenom: args['prenom'] ?? '',
+                  userId: args['userId'] ?? '',
+                ),
+              );
+
+            // 🔹 autres routes inchangées
+            case '/ticket':
+              return MaterialPageRoute(
+                builder: (_) => TicketScreen(token: args['token'] ?? ''),
+              );
+
+            case '/ticket-list':
+              return MaterialPageRoute(
+                builder: (_) => TicketHistoryScreen(token: args['token'] ?? ''),
+              );
+
+            case '/ticket-list-agent':
+              return MaterialPageRoute(
+                builder: (_) => TicketListAgentScreen(
+                  token: args['token'] ?? '',
+                  agentId: args['userId'] ?? '',
+                ),
+              );
+
+            case '/scan-qr':
+              return MaterialPageRoute(
+                builder: (_) => ScanQrScreen(
+                  token: args['token'] ?? '',
+                  userId: args['userId'] ?? '',
+                ),
+              );
+
+            case '/agents-list':
+              return MaterialPageRoute(
+                builder: (_) => AgentsListScreen(
+                  token: args['token'] ?? '',
+                  adminStationId: args['adminStationId'] ?? '',
+                ),
+              );
+
+            case '/carburants-list':
+              return MaterialPageRoute(
+                builder: (_) => CarburantsListScreen(
+                  token: args['token'] ?? '',
+                  adminStationId: args['adminStationId'] ?? '',
+                ),
+              );
+
+            case '/creer-agent_station':
+              return MaterialPageRoute(
+                builder: (_) => CreerAgentScreen(
+                  token: args['token'] ?? '',
+                  adminStationId: args['adminStationId'] ?? '',
+                ),
+              );
+
+            case '/creer-carburant':
+              return MaterialPageRoute(
+                builder: (_) => CreerCarburantScreen(
+                  token: args['token'] ?? '',
+                  adminStationId: args['adminStationId'] ?? '',
+                ),
+              );
+
+            case '/profil':
+              return MaterialPageRoute(
+                builder: (_) => ProfilScreen(
+                  userEmail: args['userEmail'] ?? '',
+                  userRole: args['userRole'] ?? '',
+                  token: args['token'] ?? '',
+                  nom: args['nom'] ?? '',
+                  prenom: args['prenom'] ?? '',
+                  onLogout: () {
+                    Navigator.pushNamedAndRemoveUntil(
+                      navigatorKey.currentContext!,
+                      '/login',
+                      (route) => false,
+                    );
+                  },
+                ),
+              );
+
+            case '/notifications':
+              return MaterialPageRoute(
+                builder: (_) => const NotificationScreen(),
+              );
+
+            default:
+              return _errorRoute(settings.name, args);
+          }
+        },
+      ),
     );
   }
 

@@ -3,7 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:faso_carbu_mobile/screens/login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+  final VoidCallback? onFinish;
+  const OnboardingScreen({super.key, this.onFinish});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -91,7 +92,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               },
             ),
           ),
-          // 🔹 Indicateurs de page
+          // Indicateurs de page
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(
@@ -104,31 +105,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 decoration: BoxDecoration(
                   color: _currentPage == index
                       ? Colors.red
-                      : Colors.red.withValues(alpha: 0.3),
+                      : Colors.red.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(5),
                 ),
               ),
             ),
           ),
           const SizedBox(height: 30),
-          // 🔹 Bouton animé
+          // Bouton animé
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             child: SizedBox(
               width: double.infinity,
               child: GestureDetector(
-                onTapDown: (_) {
-                  setState(() {});
-                },
+                onTapDown: (_) => setState(() {}),
                 onTapUp: (_) {
                   if (_currentPage == onboardingData.length - 1) {
-                    Navigator.of(context).pushReplacement(
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) =>
-                            const _FadeSlideTransition(toPage: '/login'),
-                        transitionDuration: const Duration(milliseconds: 700),
-                      ),
-                    );
+                    // ✅ Appel du callback onFinish
+                    if (widget.onFinish != null) {
+                      widget.onFinish!();
+                    } else {
+                      Navigator.of(context).pushReplacement(
+                        PageRouteBuilder(
+                          pageBuilder:
+                              (context, animation, secondaryAnimation) =>
+                                  const LoginScreen(),
+                          transitionDuration: const Duration(milliseconds: 700),
+                        ),
+                      );
+                    }
                   } else {
                     _controller.nextPage(
                       duration: const Duration(milliseconds: 400),
@@ -144,7 +149,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.red.withValues(alpha: 0.4),
+                        color: Colors.red.withOpacity(0.4),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -168,41 +173,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _FadeSlideTransition extends StatelessWidget {
-  final String toPage;
-  const _FadeSlideTransition({required this.toPage});
-
-  @override
-  Widget build(BuildContext context) {
-    return Navigator(
-      onGenerateRoute: (settings) {
-        return PageRouteBuilder(
-          pageBuilder: (_, animation, __) {
-            final Widget page;
-            switch (toPage) {
-              case '/login':
-                page = const LoginScreen(); // ✅ ton vrai login
-                break;
-              default:
-                page = const Scaffold(
-                  body: Center(child: Text("Page non trouvée")),
-                );
-            }
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.2, 0),
-                end: Offset.zero,
-              ).animate(animation),
-              child: FadeTransition(opacity: animation, child: page),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 700),
-        );
-      },
     );
   }
 }

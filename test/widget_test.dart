@@ -1,30 +1,18 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:faso_carbu_mobile/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const FasoCarbuApp());
+  testWidgets('FasoCarbuApp loads with startScreen', (
+    WidgetTester tester,
+  ) async {
+    // Crée un startScreen factice pour le test
+    final startScreen = Scaffold(body: Center(child: Text('Start Screen')));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Build notre app et déclenche un frame
+    await tester.pumpWidget(FasoCarbuApp(startScreen: startScreen));
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Vérifie que le startScreen s'affiche
+    expect(find.text('Start Screen'), findsOneWidget);
   });
 }

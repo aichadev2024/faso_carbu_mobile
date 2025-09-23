@@ -66,65 +66,37 @@ class _MainScreenState extends State<MainScreen> {
     setState(() => _selectedIndex = index);
   }
 
-  Future<bool> _onWillPop() async {
-    return await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("Confirmation"),
-            content: const Text("Voulez-vous vraiment quitter l'application ?"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text("Non"),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text("Oui"),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
-
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: _onWillPop, // 🔹 Intercepte la sortie
-      child: Scaffold(
-        body: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child: _screens[_selectedIndex],
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          backgroundColor: Colors.black,
-          selectedItemColor: Colors.red.shade700,
-          unselectedItemColor: Colors.grey,
-          showUnselectedLabels: true,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home, size: 24, color: Colors.grey),
-              activeIcon: Icon(Icons.home, size: 28, color: Colors.red),
-              label: "Accueil",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person, size: 24, color: Colors.grey),
-              activeIcon: Icon(Icons.person, size: 28, color: Colors.red),
-              label: "Profil",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.notifications, size: 24, color: Colors.grey),
-              activeIcon: Icon(
-                Icons.notifications,
-                size: 28,
-                color: Colors.red,
-              ),
-              label: "Notifications",
-            ),
-          ],
-        ),
+    return Scaffold(
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: _screens[_selectedIndex],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        backgroundColor: Colors.black,
+        selectedItemColor: Colors.red.shade700,
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home, size: 24, color: Colors.grey),
+            activeIcon: Icon(Icons.home, size: 28, color: Colors.red),
+            label: "Accueil",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person, size: 24, color: Colors.grey),
+            activeIcon: Icon(Icons.person, size: 28, color: Colors.red),
+            label: "Profil",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications, size: 24, color: Colors.grey),
+            activeIcon: Icon(Icons.notifications, size: 28, color: Colors.red),
+            label: "Notifications",
+          ),
+        ],
       ),
     );
   }

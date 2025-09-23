@@ -74,7 +74,6 @@ class _LoginScreenState extends State<LoginScreen>
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final data = jsonDecode(response.body);
 
-        // Récupération des données
         final token = data['token'] ?? '';
         final userId = data['id'] ?? '';
         final userEmail = data['email'] ?? email;
@@ -82,7 +81,6 @@ class _LoginScreenState extends State<LoginScreen>
         final nom = data['nom'] ?? '';
         final prenom = data['prenom'] ?? '';
 
-        // Sauvegarde du token et info utilisateur
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString("auth_token", token);
         await prefs.setString("userId", userId);
@@ -126,206 +124,177 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        final shouldExit = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("Confirmation"),
-            content: const Text("Voulez-vous vraiment quitter l'application ?"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text("Non"),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text("Oui"),
-              ),
-            ],
-          ),
-        );
-        return shouldExit ?? false;
-      },
-      child: Scaffold(
-        backgroundColor: const Color.fromRGBO(163, 160, 160, 1),
-        body: FadeTransition(
-          opacity: _fadeAnimation,
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    // Logo circulaire
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: const Color.fromARGB(255, 4, 1, 1),
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        'FasoCarbu',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
+    return Scaffold(
+      backgroundColor: const Color.fromRGBO(163, 160, 160, 1),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(255, 4, 1, 1),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 24),
-
-                    // Carte login
-                    Card(
-                      color: Colors.grey.shade900,
-                      elevation: 8,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'FasoCarbu',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 32,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.local_gas_station,
-                              size: 64,
-                              color: Colors.white70,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Card(
+                    color: Colors.grey.shade900,
+                    elevation: 8,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 32,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.local_gas_station,
+                            size: 64,
+                            color: Colors.white70,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Connexion',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.redAccent,
                             ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Connexion',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
+                          ),
+                          const SizedBox(height: 24),
+                          TextField(
+                            controller: _emailController,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
+                              labelText: 'Email',
+                              labelStyle: const TextStyle(
+                                color: Colors.white70,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.email,
                                 color: Colors.redAccent,
                               ),
-                            ),
-                            const SizedBox(height: 24),
-                            TextField(
-                              controller: _emailController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: InputDecoration(
-                                labelText: 'Email',
-                                labelStyle: const TextStyle(
-                                  color: Colors.white70,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                prefixIcon: const Icon(
-                                  Icons.email,
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
                                   color: Colors.redAccent,
                                 ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Colors.redAccent,
-                                  ),
-                                ),
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            TextField(
-                              controller: _passwordController,
-                              obscureText: true,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: InputDecoration(
-                                labelText: 'Mot de passe',
-                                labelStyle: const TextStyle(
-                                  color: Colors.white70,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                prefixIcon: const Icon(
-                                  Icons.lock,
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _passwordController,
+                            obscureText: true,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
+                              labelText: 'Mot de passe',
+                              labelStyle: const TextStyle(
+                                color: Colors.white70,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.lock,
+                                color: Colors.redAccent,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
                                   color: Colors.redAccent,
                                 ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Colors.redAccent,
-                                  ),
-                                ),
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            if (_error != null)
-                              Text(
-                                _error!,
-                                style: const TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 14,
-                                ),
+                          ),
+                          const SizedBox(height: 16),
+                          if (_error != null)
+                            Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 14,
                               ),
-                            const SizedBox(height: 16),
-                            _loading
-                                ? const CircularProgressIndicator(
-                                    color: Colors.redAccent,
-                                  )
-                                : SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton.icon(
-                                      onPressed: () => _login(context),
-                                      icon: const Icon(Icons.login),
-                                      label: const Text("Se connecter"),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color.fromARGB(
-                                          255,
-                                          230,
-                                          226,
-                                          226,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 14,
-                                          horizontal: 20,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        textStyle: const TextStyle(
-                                          fontSize: 16,
-                                        ),
+                            ),
+                          const SizedBox(height: 16),
+                          _loading
+                              ? const CircularProgressIndicator(
+                                  color: Colors.redAccent,
+                                )
+                              : SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => _login(context),
+                                    icon: const Icon(Icons.login),
+                                    label: const Text("Se connecter"),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        230,
+                                        226,
+                                        226,
                                       ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                        horizontal: 20,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      textStyle: const TextStyle(fontSize: 16),
                                     ),
                                   ),
-                            const SizedBox(height: 10),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const ForgotPasswordScreen(),
-                                    ),
-                                  );
-                                },
-                                child: const Text(
-                                  'Mot de passe oublié?',
-                                  style: TextStyle(
-                                    color: Color.fromARGB(255, 210, 216, 221),
+                                ),
+                          const SizedBox(height: 10),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ForgotPasswordScreen(),
                                   ),
+                                );
+                              },
+                              child: const Text(
+                                'Mot de passe oublié?',
+                                style: TextStyle(
+                                  color: Color.fromARGB(255, 210, 216, 221),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 16),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
