@@ -28,7 +28,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   );
 }
 
-// Fonction de confirmation de sortie
+// Confirmation avant de quitter l’appli
 Future<bool> showExitConfirmation(BuildContext context) async {
   return await showDialog<bool>(
         context: context,
@@ -86,33 +86,15 @@ void main() async {
   final fcmToken = await FirebaseMessaging.instance.getToken();
   logger.i("📱 Token FCM : $fcmToken");
 
-  // 🔹 Vérification du onboarding et du token
+  // 🔹 Toujours démarrer avec Onboarding
   final prefs = await SharedPreferences.getInstance();
-  final seenOnboarding = prefs.getBool('seen_onboarding') ?? false;
-  final token = prefs.getString('auth_token');
-
-  Widget startScreen;
-  if (!seenOnboarding) {
-    startScreen = OnboardingScreen(
-      onFinish: () async {
-        await prefs.setBool('seen_onboarding', true);
-        navigatorKey.currentState!.pushReplacementNamed(
-          token != null && token.isNotEmpty ? '/home' : '/login',
-        );
-      },
-    );
-  } else if (token != null && token.isNotEmpty) {
-    startScreen = const MainScreen(
-      email: '',
-      role: '',
-      token: '',
-      nom: '',
-      prenom: '',
-      userId: '',
-    );
-  } else {
-    startScreen = const LoginScreen();
-  }
+  Widget startScreen = OnboardingScreen(
+    onFinish: () async {
+      // Après onboarding → login obligatoire
+      await prefs.setBool('seen_onboarding', true);
+      navigatorKey.currentState!.pushReplacementNamed('/login');
+    },
+  );
 
   runApp(FasoCarbuApp(startScreen: startScreen));
 }
@@ -137,11 +119,9 @@ class FasoCarbuApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        // 🔹 Si le Navigator peut revenir en arrière, on laisse faire
         if (navigatorKey.currentState?.canPop() ?? false) {
           return true;
         }
-        // 🔹 Sinon, on est sur le startScreen → demande confirmation
         return await showExitConfirmation(navigatorKey.currentContext!);
       },
       child: MaterialApp(
@@ -175,17 +155,35 @@ class FasoCarbuApp extends StatelessWidget {
 
             case '/home':
               return MaterialPageRoute(
-                builder: (_) => MainScreen(
-                  email: args['userEmail'] ?? '',
-                  role: args['userRole'] ?? '',
-                  token: args['token'] ?? '',
-                  nom: args['nom'] ?? '',
-                  prenom: args['prenom'] ?? '',
-                  userId: args['userId'] ?? '',
-                ),
+                builder: (_) {
+                  return FutureBuilder<SharedPreferences>(
+                    future: SharedPreferences.getInstance(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Scaffold(
+                          body: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      final prefs = snapshot.data!;
+                      return MainScreen(
+                        email:
+                            args['userEmail'] ?? prefs.getString('email') ?? '',
+                        role: args['userRole'] ?? prefs.getString('role') ?? '',
+                        token:
+                            args['token'] ??
+                            prefs.getString('auth_token') ??
+                            '',
+                        nom: args['nom'] ?? prefs.getString('nom') ?? '',
+                        prenom:
+                            args['prenom'] ?? prefs.getString('prenom') ?? '',
+                        userId:
+                            args['userId'] ?? prefs.getString('userId') ?? '',
+                      );
+                    },
+                  );
+                },
               );
 
-            // 🔹 autres routes inchangées
             case '/ticket':
               return MaterialPageRoute(
                 builder: (_) => TicketScreen(token: args['token'] ?? ''),
