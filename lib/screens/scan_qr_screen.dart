@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:logger/logger.dart';
+
+var logger = Logger();
 
 class ScanQrScreen extends StatefulWidget {
   final String token;
@@ -29,12 +32,12 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
             ticketData?['montant']?.toString() ?? "0", // ✅ toujours un montant
       };
 
-      print("📤 Envoi au backend:");
-      print(
+      logger.i("📤 Envoi au backend:");
+      logger.i(
         "URL: https://faso-carbu-backend-2.onrender.com/api/tickets/valider",
       );
-      print("Headers: {Authorization: Bearer ${widget.token}}");
-      print("Payload: $payload");
+      logger.i("Headers: {Authorization: Bearer ${widget.token}}");
+      logger.i("Payload: $payload");
 
       final response = await http.post(
         Uri.parse(
@@ -47,7 +50,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
         body: jsonEncode(payload),
       );
 
-      print("📥 Réponse backend (${response.statusCode}): ${response.body}");
+      logger.i("📥 Réponse backend (${response.statusCode}): ${response.body}");
 
       if (response.statusCode == 200) {
         if (!mounted) return;

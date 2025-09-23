@@ -64,7 +64,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Mot de passe oublié"),
-        backgroundColor: const Color(0xFF00BFFF),
+        backgroundColor: const Color.fromARGB(255, 255, 38, 0),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24),
@@ -106,7 +106,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               child: ElevatedButton(
                 onPressed: _loading ? null : _resetPassword,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00BFFF),
+                  backgroundColor: const Color.fromARGB(255, 255, 34, 0),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

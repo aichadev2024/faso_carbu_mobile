@@ -141,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen>
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                      color: Colors.red.shade700,
+                      color: const Color.fromARGB(255, 4, 1, 1),
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,
@@ -256,7 +256,12 @@ class _LoginScreenState extends State<LoginScreen>
                                     icon: const Icon(Icons.login),
                                     label: const Text("Se connecter"),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red.shade700,
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        230,
+                                        226,
+                                        226,
+                                      ),
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 14,
                                         horizontal: 20,
@@ -284,7 +289,9 @@ class _LoginScreenState extends State<LoginScreen>
 
                               child: const Text(
                                 'Mot de passe oublié?',
-                                style: TextStyle(color: Colors.blue),
+                                style: TextStyle(
+                                  color: Color.fromARGB(255, 210, 216, 221),
+                                ),
                               ),
                             ),
                           ),

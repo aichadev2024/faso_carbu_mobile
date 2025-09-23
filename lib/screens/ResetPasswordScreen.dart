@@ -80,7 +80,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Réinitialiser mot de passe"),
-        backgroundColor: const Color(0xFF00BFFF),
+        backgroundColor: const Color.fromARGB(255, 255, 55, 0),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24),
@@ -148,7 +148,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               child: ElevatedButton(
                 onPressed: _loading ? null : _resetPassword,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00BFFF),
+                  backgroundColor: const Color.fromARGB(255, 255, 72, 0),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
