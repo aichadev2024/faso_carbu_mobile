@@ -51,9 +51,8 @@ Future<bool> showExitConfirmation(BuildContext context) async {
       false;
 }
 
-/// 🔹 Réveille le backend Render avant de continuer
 Future<void> wakeUpBackend() async {
-  const backendUrl = "https://faso-carbu-backend-2.onrender.com/api/auth/";
+  const backendUrl = "https://faso-carbu-backend-2.onrender.com/api/auth/ping";
   try {
     final response = await http
         .get(Uri.parse(backendUrl))
@@ -324,6 +323,7 @@ class FasoCarbuApp extends StatelessWidget {
                   token: args['token'] ?? '',
                   nom: args['nom'] ?? '',
                   prenom: args['prenom'] ?? '',
+                  userId: args['userId'] ?? '',
                   onLogout: () {
                     Navigator.pushNamedAndRemoveUntil(
                       navigatorKey.currentContext!,

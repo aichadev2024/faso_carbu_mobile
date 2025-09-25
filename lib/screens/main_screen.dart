@@ -52,6 +52,7 @@ class _MainScreenState extends State<MainScreen> {
         token: widget.token,
         nom: widget.nom,
         prenom: widget.prenom,
+        userId: widget.userId,
         onLogout: _handleLogout,
       ),
       const NotificationScreen(),

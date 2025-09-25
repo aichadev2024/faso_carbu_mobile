@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import 'package:faso_carbu_mobile/screens/change_password_screen.dart';
+import 'dart:convert';
 
 class ProfilScreen extends StatefulWidget {
   final String userEmail;
@@ -9,6 +11,8 @@ class ProfilScreen extends StatefulWidget {
   final String token;
   final String nom;
   final String prenom;
+  final String userId;
+  final String? userPhotoUrl;
   final VoidCallback onLogout;
 
   const ProfilScreen({
@@ -18,6 +22,8 @@ class ProfilScreen extends StatefulWidget {
     required this.token,
     required this.nom,
     required this.prenom,
+    required this.userId,
+    this.userPhotoUrl,
     required this.onLogout,
   });
 
@@ -27,6 +33,13 @@ class ProfilScreen extends StatefulWidget {
 
 class _ProfilScreenState extends State<ProfilScreen> {
   File? _profileImage;
+  String? _photoUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _photoUrl = widget.userPhotoUrl;
+  }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -36,6 +49,37 @@ class _ProfilScreenState extends State<ProfilScreen> {
       setState(() {
         _profileImage = File(pickedFile.path);
       });
+
+      await _uploadPhoto(pickedFile);
+    }
+  }
+
+  Future<void> _uploadPhoto(XFile pickedFile) async {
+    try {
+      final uri = Uri.parse(
+        "https://faso-carbu-backend-2.onrender.com/api/utilisateurs/${widget.userId}/upload-photo",
+      );
+
+      var request = http.MultipartRequest('POST', uri);
+      request.headers['Authorization'] = "Bearer ${widget.token}";
+      request.files.add(
+        await http.MultipartFile.fromPath('file', pickedFile.path),
+      );
+
+      final response = await request.send();
+
+      if (response.statusCode == 200) {
+        final respStr = await response.stream.bytesToString();
+        final jsonResp = json.decode(respStr);
+        setState(() {
+          _photoUrl = jsonResp['photoUrl']; // l’URL renvoyée par le backend
+        });
+        print("✅ Photo uploadée avec succès !");
+      } else {
+        print("❌ Erreur upload : ${response.statusCode}");
+      }
+    } catch (e) {
+      print("❌ Exception upload photo : $e");
     }
   }
 
@@ -77,7 +121,11 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   backgroundColor: Colors.red.shade100,
                   backgroundImage: _profileImage != null
                       ? FileImage(_profileImage!)
-                      : const AssetImage('assets/images/default_avatar.png')
+                      : (_photoUrl != null && _photoUrl!.isNotEmpty
+                                ? NetworkImage(_photoUrl!)
+                                : const AssetImage(
+                                    'assets/images/default_avatar.png',
+                                  ))
                             as ImageProvider,
                 ),
                 InkWell(
