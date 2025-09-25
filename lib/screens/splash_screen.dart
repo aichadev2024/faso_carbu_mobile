@@ -12,21 +12,40 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _rotationAnimation;
+
   @override
   void initState() {
     super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+
+    _scaleAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.elasticOut,
+    );
+    _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+    _rotationAnimation = Tween<double>(
+      begin: 0,
+      end: 2,
+    ).animate(_controller); // 2 tours
+
+    _controller.forward();
+
     _initializeApp();
   }
 
   Future<void> _initializeApp() async {
-    // Étape 1 : Réveiller ton backend Render
     await wakeUpBackend();
-
-    // Étape 2 : Attendre un peu pour l'animation
-    await Future.delayed(const Duration(seconds: 2));
-
-    // Étape 3 : Aller vers Onboarding toujours (comme décidé)
+    await Future.delayed(const Duration(seconds: 4));
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
@@ -34,7 +53,6 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 
-  /// Fonction pour réveiller Render
   Future<void> wakeUpBackend() async {
     const String url = "https://faso-carbu-backend-2.onrender.com/";
     try {
@@ -50,21 +68,54 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.white,
+    return Scaffold(
+      backgroundColor: Colors.black,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.local_gas_station, size: 80, color: Colors.green),
-            SizedBox(height: 20),
-            Text(
-              "FasoCarbu",
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                return Opacity(
+                  opacity: _fadeAnimation.value,
+                  child: Transform.rotate(
+                    angle: _rotationAnimation.value * 3.1416,
+                    child: Transform.scale(
+                      scale: _scaleAnimation.value,
+                      child: child,
+                    ),
+                  ),
+                );
+              },
+              child: Column(
+                children: [
+                  Image.asset(
+                    "assets/logo.png",
+                    height: 120,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "FasoCarbu",
+                    style: TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            SizedBox(height: 40),
-            CircularProgressIndicator(),
+            const SizedBox(height: 40),
+            const CircularProgressIndicator(color: Colors.red, strokeWidth: 3),
           ],
         ),
       ),

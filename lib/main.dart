@@ -16,6 +16,7 @@ import 'package:faso_carbu_mobile/screens/ticket_list_agent_screen.dart';
 import 'package:faso_carbu_mobile/screens/onboarding_screen.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 var logger = Logger();
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -48,6 +49,45 @@ Future<bool> showExitConfirmation(BuildContext context) async {
         ),
       ) ??
       false;
+}
+
+/// 🔹 Réveille le backend Render avant de continuer
+Future<void> wakeUpBackend() async {
+  const backendUrl = "https://faso-carbu-backend-2.onrender.com/api/auth/";
+  try {
+    final response = await http
+        .get(Uri.parse(backendUrl))
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      logger.i("🚀 Backend réveillé avec succès !");
+    } else {
+      logger.w("⚠️ Backend a répondu avec code ${response.statusCode}");
+    }
+  } catch (e) {
+    logger.w("⏳ Tentative de réveil backend échouée : $e");
+  }
+}
+
+/// 🔹 SplashScreen affiché pendant le réveil du backend
+class SplashScreen extends StatelessWidget {
+  const SplashScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 20),
+            Text("Démarrage du serveur…"),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 void main() async {
@@ -86,17 +126,51 @@ void main() async {
   final fcmToken = await FirebaseMessaging.instance.getToken();
   logger.i("📱 Token FCM : $fcmToken");
 
-  // 🔹 Toujours démarrer avec Onboarding
-  final prefs = await SharedPreferences.getInstance();
-  Widget startScreen = OnboardingScreen(
-    onFinish: () async {
-      // Après onboarding → login obligatoire
-      await prefs.setBool('seen_onboarding', true);
-      navigatorKey.currentState!.pushReplacementNamed('/login');
-    },
-  );
+  runApp(const FasoCarbuAppLoader());
+}
 
-  runApp(FasoCarbuApp(startScreen: startScreen));
+/// 🔹 Loader qui réveille le backend avant de lancer l’app réelle
+class FasoCarbuAppLoader extends StatefulWidget {
+  const FasoCarbuAppLoader({super.key});
+
+  @override
+  State<FasoCarbuAppLoader> createState() => _FasoCarbuAppLoaderState();
+}
+
+class _FasoCarbuAppLoaderState extends State<FasoCarbuAppLoader> {
+  Widget? startScreen;
+
+  @override
+  void initState() {
+    super.initState();
+    _initApp();
+  }
+
+  Future<void> _initApp() async {
+    await wakeUpBackend();
+
+    final prefs = await SharedPreferences.getInstance();
+
+    // Toujours démarrer avec Onboarding
+    startScreen = OnboardingScreen(
+      onFinish: () async {
+        await prefs.setBool('seen_onboarding', true);
+        navigatorKey.currentState!.pushReplacementNamed('/login');
+      },
+    );
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (startScreen == null) {
+      return const MaterialApp(home: SplashScreen());
+    }
+    return FasoCarbuApp(startScreen: startScreen!);
+  }
 }
 
 void _handleMessageNavigation(RemoteMessage message) {

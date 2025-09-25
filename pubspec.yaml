@@ -39,4 +39,5 @@ flutter:
     - assets/icons/home.svg
     - assets/icons/profile.svg
     - assets/icons/notif.svg
+    - assets/logo.png
 
