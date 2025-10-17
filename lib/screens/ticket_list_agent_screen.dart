@@ -30,7 +30,7 @@ class _TicketListAgentScreenState extends State<TicketListAgentScreen> {
     try {
       final response = await http.get(
         Uri.parse(
-          "https://faso-carbu-backend-2.onrender.com/api/tickets/agent/${widget.agentId}",
+          "https://faso-carbu-backend-2.onrender.com/api/tickets/mes-tickets-valides",
         ),
         headers: {
           "Content-Type": "application/json",

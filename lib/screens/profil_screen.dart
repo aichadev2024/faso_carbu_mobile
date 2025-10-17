@@ -1,9 +1,9 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:faso_carbu_mobile/screens/change_password_screen.dart';
-import 'dart:convert';
 
 class ProfilScreen extends StatefulWidget {
   final String userEmail;
@@ -12,7 +12,6 @@ class ProfilScreen extends StatefulWidget {
   final String nom;
   final String prenom;
   final String userId;
-  final String? userPhotoUrl;
   final VoidCallback onLogout;
 
   const ProfilScreen({
@@ -23,7 +22,6 @@ class ProfilScreen extends StatefulWidget {
     required this.nom,
     required this.prenom,
     required this.userId,
-    this.userPhotoUrl,
     required this.onLogout,
   });
 
@@ -34,37 +32,66 @@ class ProfilScreen extends StatefulWidget {
 class _ProfilScreenState extends State<ProfilScreen> {
   File? _profileImage;
   String? _photoUrl;
+  bool _isUploading = false;
+  bool _isLoading = true;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    _photoUrl = widget.userPhotoUrl;
+    _fetchUserPhoto();
   }
 
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+  Future<void> _fetchUserPhoto() async {
+    setState(() => _isLoading = true);
+    try {
+      final response = await http.get(
+        Uri.parse(
+          "https://faso-carbu-backend-2.onrender.com/api/utilisateurs/${widget.userId}",
+        ),
+        headers: {
+          "Authorization": "Bearer ${widget.token}",
+          "Content-Type": "application/json",
+        },
+      );
 
-    if (pickedFile != null) {
-      setState(() {
-        _profileImage = File(pickedFile.path);
-      });
-
-      await _uploadPhoto(pickedFile);
+      if (response.statusCode == 200) {
+        final decodedBody = utf8.decode(response.bodyBytes);
+        final data = jsonDecode(decodedBody);
+        setState(() {
+          _photoUrl = data['photoUrl'];
+          _isLoading = false;
+        });
+      } else {
+        throw Exception("Erreur récupération profil: ${response.body}");
+      }
+    } catch (e) {
+      debugPrint("❌ Erreur fetch photo: $e");
+      setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _uploadPhoto(XFile pickedFile) async {
-    try {
-      final uri = Uri.parse(
-        "https://faso-carbu-backend-2.onrender.com/api/utilisateurs/${widget.userId}/upload-photo",
-      );
+  Future<void> _pickImage() async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _profileImage = File(pickedFile.path);
+        _isUploading = true;
+      });
+      await _uploadPhoto(File(pickedFile.path));
+    }
+  }
 
-      var request = http.MultipartRequest('POST', uri);
-      request.headers['Authorization'] = "Bearer ${widget.token}";
-      request.files.add(
-        await http.MultipartFile.fromPath('file', pickedFile.path),
+  Future<void> _uploadPhoto(File file) async {
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse(
+          "https://faso-carbu-backend-2.onrender.com/api/utilisateurs/${widget.userId}/upload-photo",
+        ),
       );
+      request.headers['Authorization'] = "Bearer ${widget.token}";
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
       final response = await request.send();
 
@@ -72,14 +99,20 @@ class _ProfilScreenState extends State<ProfilScreen> {
         final respStr = await response.stream.bytesToString();
         final jsonResp = json.decode(respStr);
         setState(() {
-          _photoUrl = jsonResp['photoUrl']; // l’URL renvoyée par le backend
+          _photoUrl = jsonResp['photoUrl'];
+          _isUploading = false;
         });
-        print("✅ Photo uploadée avec succès !");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("✅ Photo uploadée avec succès !")),
+        );
       } else {
-        print("❌ Erreur upload : ${response.statusCode}");
+        setState(() => _isUploading = false);
       }
     } catch (e) {
-      print("❌ Exception upload photo : $e");
+      setState(() => _isUploading = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("❌ Erreur upload photo : $e")));
     }
   }
 
@@ -102,155 +135,159 @@ class _ProfilScreenState extends State<ProfilScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        title: const Text('Mon Profil 👤'),
-        centerTitle: true,
-        backgroundColor: Colors.red.shade700,
-        elevation: 2,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
-        child: Column(
-          children: [
-            // 🔹 Avatar
-            Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                CircleAvatar(
-                  radius: 65,
-                  backgroundColor: Colors.red.shade100,
-                  backgroundImage: _profileImage != null
-                      ? FileImage(_profileImage!)
-                      : (_photoUrl != null && _photoUrl!.isNotEmpty
-                                ? NetworkImage(_photoUrl!)
-                                : const AssetImage(
-                                    'assets/images/default_avatar.png',
-                                  ))
-                            as ImageProvider,
-                ),
-                InkWell(
-                  onTap: _pickImage,
-                  borderRadius: BorderRadius.circular(30),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade700,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 6,
-                          offset: const Offset(0, 3),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: Column(
+                children: [
+                  // ======= HEADER =======
+                  Stack(
+                    children: [
+                      Container(
+                        height: 200,
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFFD32F2F), Color(0xFFE53935)],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                          borderRadius: BorderRadius.only(
+                            bottomLeft: Radius.circular(100),
+                            bottomRight: Radius.circular(100),
+                          ),
                         ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(8),
-                    child: const Icon(
-                      Icons.camera_alt,
-                      size: 22,
-                      color: Colors.white,
+                      ),
+                      Positioned(
+                        top: 40,
+                        left: 10,
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Column(
+                          children: [
+                            GestureDetector(
+                              onTap: _isUploading ? null : _pickImage,
+                              child: CircleAvatar(
+                                radius: 55,
+                                backgroundColor: Colors.white,
+                                backgroundImage: _profileImage != null
+                                    ? FileImage(_profileImage!)
+                                    : (_photoUrl != null
+                                              ? NetworkImage(_photoUrl!)
+                                              : const AssetImage(
+                                                  'assets/images/default_avatar.png',
+                                                ))
+                                          as ImageProvider,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              "${widget.nom} ${widget.prenom}",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              _formatRole(widget.userRole),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+
+                  // ======= INFOS UTILISATEUR =======
+                  _buildInfoTile(
+                    Icons.person,
+                    "${widget.nom} ${widget.prenom}",
+                  ),
+                  _buildInfoTile(Icons.email, widget.userEmail),
+                  _buildInfoTile(Icons.badge, _formatRole(widget.userRole)),
+                  _buildInfoTile(
+                    Icons.lock,
+                    "Changer le mot de passe",
+                    trailing: Icons.arrow_forward_ios,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ChangePasswordScreen(token: widget.token),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 25),
+
+                  // ======= BOUTON DÉCONNEXION =======
+                  TextButton.icon(
+                    onPressed: widget.onLogout,
+                    icon: const Icon(Icons.logout, color: Colors.red),
+                    label: const Text(
+                      "Se déconnecter",
+                      style: TextStyle(color: Colors.red),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 30),
-
-            // 🔹 Infos utilisateur
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              elevation: 5,
-              shadowColor: Colors.black12,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 25,
-                ),
-                child: Column(
-                  children: [
-                    _buildInfoRow(Icons.person, "Nom", widget.nom),
-                    const Divider(),
-                    _buildInfoRow(Icons.badge, "Prénom", widget.prenom),
-                    const Divider(),
-                    _buildInfoRow(Icons.email, "Email", widget.userEmail),
-                    const Divider(),
-                    _buildInfoRow(
-                      Icons.verified_user,
-                      "Rôle",
-                      _formatRole(widget.userRole),
-                    ),
-                  ],
-                ),
+                  const SizedBox(height: 40),
+                ],
               ),
             ),
-            const SizedBox(height: 40),
-
-            // 🔹 Boutons
-            _buildButton(
-              label: "Changer le mot de passe",
-              icon: Icons.lock_reset,
-              color: Colors.red.shade700,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChangePasswordScreen(token: widget.token),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            _buildButton(
-              label: "Se déconnecter",
-              icon: Icons.logout,
-              color: Colors.grey.shade800,
-              onPressed: widget.onLogout,
-            ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.red.shade700),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            "$label : $value",
-            style: const TextStyle(fontSize: 16, color: Colors.black87),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildButton({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onPressed,
+  Widget _buildInfoTile(
+    IconData icon,
+    String text, {
+    IconData? trailing,
+    VoidCallback? onTap,
   }) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, color: Colors.white),
-        label: Text(
-          label,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 25, vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade300,
+            blurRadius: 5,
+            offset: const Offset(0, 2),
           ),
-          elevation: 3,
-        ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.red.shade700),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 16, color: Colors.black87),
+            ),
+          ),
+          if (trailing != null)
+            IconButton(
+              icon: Icon(trailing, color: Colors.grey.shade600),
+              onPressed: onTap,
+            ),
+        ],
       ),
     );
   }

@@ -30,7 +30,7 @@ class _CreerCarburantScreenState extends State<CreerCarburantScreen> {
 
     final response = await http.post(
       Uri.parse(
-        "https://faso-carbu-backend-2.onrender.com/api/admin-stations/${widget.adminStationId}/carburants",
+        "https://faso-carbu-backend-2.onrender.com/api/admin-stations/carburants",
       ),
       headers: {
         "Content-Type": "application/json",
