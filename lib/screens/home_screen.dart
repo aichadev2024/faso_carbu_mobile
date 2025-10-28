@@ -9,7 +9,6 @@ import 'package:logger/logger.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 
-// ⚠️ Importe tes écrans ici
 import 'package:faso_carbu_mobile/screens/ticket_screen.dart';
 import 'package:faso_carbu_mobile/screens/ticket_history_screen.dart';
 import 'package:faso_carbu_mobile/screens/scan_qr_screen.dart';

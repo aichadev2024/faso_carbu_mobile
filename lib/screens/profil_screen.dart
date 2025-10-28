@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:faso_carbu_mobile/screens/change_password_screen.dart';
 
 class ProfilScreen extends StatefulWidget {
@@ -39,41 +40,68 @@ class _ProfilScreenState extends State<ProfilScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchUserPhoto();
+    _loadLocalPhoto();
+    _fetchUserPhotoWithRetry();
   }
 
-  Future<void> _fetchUserPhoto() async {
-    setState(() => _isLoading = true);
-    try {
-      final response = await http.get(
-        Uri.parse(
-          "https://faso-carbu-backend-2.onrender.com/api/utilisateurs/${widget.userId}",
-        ),
-        headers: {
-          "Authorization": "Bearer ${widget.token}",
-          "Content-Type": "application/json",
-        },
-      );
+  Future<void> _loadLocalPhoto() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUrl = prefs.getString('photoProfil_${widget.userId}');
+    if (!mounted) return;
+    setState(() => _photoUrl = savedUrl);
+  }
 
-      if (response.statusCode == 200) {
-        final decodedBody = utf8.decode(response.bodyBytes);
-        final data = jsonDecode(decodedBody);
-        setState(() {
-          _photoUrl = data['photoUrl'];
-          _isLoading = false;
-        });
-      } else {
-        throw Exception("Erreur récupération profil: ${response.body}");
+  Future<void> _saveLocalPhoto(String url) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('photoProfil_${widget.userId}', url);
+  }
+
+  Future<void> _fetchUserPhotoWithRetry({
+    int retries = 3,
+    int delaySeconds = 3,
+  }) async {
+    for (int attempt = 0; attempt < retries; attempt++) {
+      try {
+        final response = await http.get(
+          Uri.parse(
+            "https://faso-carbu-backend-2.onrender.com/api/utilisateurs/${widget.userId}",
+          ),
+          headers: {
+            "Authorization": "Bearer ${widget.token}",
+            "Content-Type": "application/json",
+          },
+        );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(utf8.decode(response.bodyBytes));
+          final url = data['photoProfil'] ?? data['photo_profil'];
+
+          if (url != null &&
+              url.isNotEmpty &&
+              Uri.tryParse(url)?.isAbsolute == true) {
+            if (!mounted) return;
+            await _saveLocalPhoto(url);
+            setState(() => _photoUrl = url);
+          }
+          break;
+        } else {
+          debugPrint("Erreur serveur: ${response.statusCode}");
+        }
+      } catch (e) {
+        debugPrint("Tentative ${attempt + 1} échouée: $e");
+        if (attempt < retries - 1) {
+          await Future.delayed(Duration(seconds: delaySeconds));
+        }
       }
-    } catch (e) {
-      debugPrint("❌ Erreur fetch photo: $e");
-      setState(() => _isLoading = false);
     }
+    if (!mounted) return;
+    setState(() => _isLoading = false);
   }
 
-  Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+  Future<void> _pickImage(ImageSource source) async {
+    final pickedFile = await _picker.pickImage(source: source);
     if (pickedFile != null) {
+      if (!mounted) return;
       setState(() {
         _profileImage = File(pickedFile.path);
         _isUploading = true;
@@ -98,22 +126,74 @@ class _ProfilScreenState extends State<ProfilScreen> {
       if (response.statusCode == 200) {
         final respStr = await response.stream.bytesToString();
         final jsonResp = json.decode(respStr);
-        setState(() {
-          _photoUrl = jsonResp['photoUrl'];
-          _isUploading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Photo uploadée avec succès !")),
-        );
+        final photoUrl = jsonResp['photoProfil'] ?? jsonResp['photo_profil'];
+
+        if (photoUrl != null && photoUrl.isNotEmpty) {
+          if (!mounted) return;
+          await _saveLocalPhoto(photoUrl);
+          setState(() {
+            _photoUrl = photoUrl;
+            _profileImage = null;
+            _isUploading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("✅ Photo mise à jour avec succès !")),
+          );
+        }
       } else {
+        if (!mounted) return;
         setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("❌ Erreur upload photo : ${response.statusCode}"),
+          ),
+        );
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isUploading = false);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("❌ Erreur upload photo : $e")));
     }
+  }
+
+  void _showPhotoOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Photo de profil",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text("Caméra"),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text("Galerie"),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String _formatRole(String role) {
@@ -133,6 +213,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       body: _isLoading
@@ -140,11 +222,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
           : SingleChildScrollView(
               child: Column(
                 children: [
-                  // ======= HEADER =======
                   Stack(
                     children: [
                       Container(
-                        height: 200,
+                        height: screenHeight * 0.3,
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
                             colors: [Color(0xFFD32F2F), Color(0xFFE53935)],
@@ -169,24 +250,55 @@ class _ProfilScreenState extends State<ProfilScreen> {
                         ),
                       ),
                       Positioned(
-                        bottom: 0,
+                        top: screenHeight * 0.08,
                         left: 0,
                         right: 0,
                         child: Column(
                           children: [
                             GestureDetector(
-                              onTap: _isUploading ? null : _pickImage,
+                              onTap: _showPhotoOptions,
                               child: CircleAvatar(
                                 radius: 55,
                                 backgroundColor: Colors.white,
-                                backgroundImage: _profileImage != null
-                                    ? FileImage(_profileImage!)
-                                    : (_photoUrl != null
-                                              ? NetworkImage(_photoUrl!)
-                                              : const AssetImage(
-                                                  'assets/images/default_avatar.png',
-                                                ))
-                                          as ImageProvider,
+                                child: ClipOval(
+                                  child: _isUploading
+                                      ? const Center(
+                                          child: CircularProgressIndicator(
+                                            color: Colors.red,
+                                          ),
+                                        )
+                                      : (_profileImage != null
+                                            ? Image.file(
+                                                _profileImage!,
+                                                fit: BoxFit.cover,
+                                                width: 110,
+                                                height: 110,
+                                              )
+                                            : (_photoUrl != null
+                                                  ? Image.network(
+                                                      _photoUrl!,
+                                                      fit: BoxFit.cover,
+                                                      width: 110,
+                                                      height: 110,
+                                                      errorBuilder:
+                                                          (
+                                                            _,
+                                                            __,
+                                                            ___,
+                                                          ) => Image.asset(
+                                                            'assets/images/default_avatar.png',
+                                                            fit: BoxFit.cover,
+                                                            width: 110,
+                                                            height: 110,
+                                                          ),
+                                                    )
+                                                  : Image.asset(
+                                                      'assets/images/default_avatar.png',
+                                                      fit: BoxFit.cover,
+                                                      width: 110,
+                                                      height: 110,
+                                                    ))),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -205,90 +317,70 @@ class _ProfilScreenState extends State<ProfilScreen> {
                                 fontSize: 16,
                               ),
                             ),
-                            const SizedBox(height: 20),
                           ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 30),
-
-                  // ======= INFOS UTILISATEUR =======
-                  _buildInfoTile(
-                    Icons.person,
-                    "${widget.nom} ${widget.prenom}",
-                  ),
-                  _buildInfoTile(Icons.email, widget.userEmail),
-                  _buildInfoTile(Icons.badge, _formatRole(widget.userRole)),
-                  _buildInfoTile(
-                    Icons.lock,
-                    "Changer le mot de passe",
-                    trailing: Icons.arrow_forward_ios,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              ChangePasswordScreen(token: widget.token),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 25),
-
-                  // ======= BOUTON DÉCONNEXION =======
-                  TextButton.icon(
-                    onPressed: widget.onLogout,
-                    icon: const Icon(Icons.logout, color: Colors.red),
-                    label: const Text(
-                      "Se déconnecter",
-                      style: TextStyle(color: Colors.red),
+                  const SizedBox(height: 20),
+                  Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    elevation: 5,
+                    child: ListTile(
+                      leading: const Icon(Icons.email, color: Colors.redAccent),
+                      title: Text(widget.userEmail),
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 10),
+                  Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    elevation: 5,
+                    child: ListTile(
+                      leading: const Icon(
+                        Icons.security,
+                        color: Colors.redAccent,
+                      ),
+                      title: const Text("Changer le mot de passe"),
+                      trailing: const Icon(Icons.arrow_forward_ios),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ChangePasswordScreen(token: widget.token),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.logout, color: Colors.white),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        minimumSize: const Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                      onPressed: widget.onLogout,
+                      label: const Text(
+                        "Se déconnecter",
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-    );
-  }
-
-  Widget _buildInfoTile(
-    IconData icon,
-    String text, {
-    IconData? trailing,
-    VoidCallback? onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 25, vertical: 6),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade300,
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.red.shade700),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 16, color: Colors.black87),
-            ),
-          ),
-          if (trailing != null)
-            IconButton(
-              icon: Icon(trailing, color: Colors.grey.shade600),
-              onPressed: onTap,
-            ),
-        ],
-      ),
     );
   }
 }
