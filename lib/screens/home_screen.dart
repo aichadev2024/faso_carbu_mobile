@@ -1,22 +1,17 @@
 import 'dart:io';
-import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:faso_carbu_mobile/services/api_service.dart';
-import 'package:logger/logger.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:http/http.dart' as http;
 
-import 'package:faso_carbu_mobile/screens/ticket_screen.dart';
-import 'package:faso_carbu_mobile/screens/ticket_history_screen.dart';
-import 'package:faso_carbu_mobile/screens/scan_qr_screen.dart';
-import 'package:faso_carbu_mobile/screens/ticket_list_agent_screen.dart';
-import 'package:faso_carbu_mobile/screens/agents_list_screen.dart';
-import 'package:faso_carbu_mobile/screens/carburants_list_screen.dart';
+import 'ticket_screen.dart';
+import 'ticket_history_screen.dart';
+import 'scan_qr_screen.dart';
+import 'ticket_list_agent_screen.dart';
+import 'agents_list_screen.dart';
+import 'carburants_list_screen.dart';
 
-var logger = Logger();
+const Color primaryRed = Color(0xFFD32F2F);
 
 class HomeScreen extends StatefulWidget {
   final String userEmail;
@@ -24,7 +19,7 @@ class HomeScreen extends StatefulWidget {
   final String token;
   final String nom;
   final String prenom;
-  final String userId; // ⚡ UUID pour les routes backend
+  final String userId;
 
   const HomeScreen({
     super.key,
@@ -33,7 +28,7 @@ class HomeScreen extends StatefulWidget {
     required this.token,
     required this.nom,
     required this.prenom,
-    required this.userId, // ⚡ obligatoire
+    required this.userId,
   });
 
   @override
@@ -46,44 +41,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _initHome();
-  }
-
-  Future<void> _initHome() async {
-    logger.i("🔹 Initialisation HomeScreen...");
-    await ApiService.syncCarburants();
-    await _loadProfileImage();
-    await envoyerTokenFCMAuBackend();
-  }
-
-  Future<void> envoyerTokenFCMAuBackend() async {
-    try {
-      FirebaseMessaging messaging = FirebaseMessaging.instance;
-      String? fcmToken = await messaging.getToken();
-      if (fcmToken == null) return;
-
-      final response = await http.post(
-        Uri.parse(
-          'https://faso-carbu-backend-2.onrender.com/api/utilisateurs/update-token',
-        ),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${widget.token}',
-        },
-        body: jsonEncode({'fcmToken': fcmToken}),
-      );
-
-      if (response.statusCode != 200) {
-        logger.e("Erreur en envoyant le token FCM : ${response.body}");
-      }
-    } catch (e, s) {
-      logger.e("Exception pendant l’envoi du token FCM : $e\n$s");
-    }
+    _loadProfileImage();
   }
 
   Future<void> _loadProfileImage() async {
     final prefs = await SharedPreferences.getInstance();
-    String? path = prefs.getString('profile_image_path');
+    final path = prefs.getString('profile_image_path');
     if (path != null && File(path).existsSync()) {
       setState(() => _profileImage = File(path));
     }
@@ -91,20 +54,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      final appDir = await getApplicationDocumentsDirectory();
-      final savedImage = await File(
-        pickedFile.path,
-      ).copy('${appDir.path}/profile.jpg');
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
 
-      setState(() => _profileImage = savedImage);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('profile_image_path', savedImage.path);
-    }
+    setState(() => _profileImage = File(picked.path));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('profile_image_path', picked.path);
   }
 
-  String formatRole(String role) {
+  String roleLabel(String role) {
     switch (role) {
       case 'ROLE_ADMIN_STATION':
         return 'Admin Station';
@@ -118,280 +76,212 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void navigate(BuildContext context, String route) {
-    switch (route) {
-      case '/ticket':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => TicketScreen(token: widget.token)),
-        );
-        break;
+    final routes = {
+      '/ticket': TicketScreen(token: widget.token),
+      '/ticket-list': TicketHistoryScreen(token: widget.token),
+      '/scan-qr': ScanQrScreen(token: widget.token, userId: widget.userId),
+      '/ticket-list-agent': TicketListAgentScreen(
+        token: widget.token,
+        agentId: widget.userId,
+      ),
+      '/agents-list': AgentsListScreen(
+        token: widget.token,
+        adminStationId: widget.userId,
+      ),
+      '/carburants-list': CarburantsListScreen(
+        token: widget.token,
+        adminStationId: widget.userId,
+      ),
+    };
 
-      case '/ticket-list':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => TicketHistoryScreen(token: widget.token),
-          ),
-        );
-        break;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => routes[route]!));
+  }
 
-      case '/scan-qr':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ScanQrScreen(
-              token: widget.token,
-              userId: widget.userId, // ✅ UUID correct
-            ),
-          ),
-        );
-        break;
-
-      case '/ticket-list-agent':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => TicketListAgentScreen(
-              token: widget.token,
-              agentId: widget.userId, // ✅ UUID correct
-            ),
-          ),
-        );
-        break;
-
-      case '/agents-list':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => AgentsListScreen(
-              token: widget.token,
-              adminStationId: widget.userId, // ✅ UUID correct pour admin
-            ),
-          ),
-        );
-        break;
-
-      case '/carburants-list':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => CarburantsListScreen(
-              token: widget.token,
-              adminStationId: widget.userId, // ✅ UUID correct pour admin
-            ),
-          ),
-        );
-        break;
-
-      default:
-        logger.w("Route inconnue: $route");
+  List<Map<String, String>> getTiles() {
+    if (widget.userRole == 'ROLE_ADMIN_STATION') {
+      return [
+        {
+          'image': 'assets/images/agents.jpg',
+          'label': 'Agents',
+          'route': '/agents-list',
+        },
+        {
+          'image': 'assets/images/carburants.jpg',
+          'label': 'Carburants',
+          'route': '/carburants-list',
+        },
+      ];
     }
+
+    if (widget.userRole == 'ROLE_CHAUFFEUR') {
+      return [
+        {
+          'image': 'assets/images/tickets.jpg',
+          'label': 'Tickets',
+          'route': '/ticket',
+        },
+        {
+          'image': 'assets/images/history.jpg',
+          'label': 'Historique',
+          'route': '/ticket-list',
+        },
+      ];
+    }
+
+    return [
+      {
+        'image': 'assets/images/scan.jpg',
+        'label': 'Scanner QR',
+        'route': '/scan-qr',
+      },
+      {
+        'image': 'assets/images/history.jpg',
+        'label': 'Historique',
+        'route': '/ticket-list-agent',
+      },
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
+    final tiles = getTiles();
+
+    // Détection mode sombre / clair
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? Color(0xFF0F1115) : Colors.grey.shade100;
+    final cardColor = isDark ? Color(0xFF1A1D24) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subTextColor = isDark ? Colors.white70 : Colors.black54;
+
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.red.shade700, Colors.red.shade100, Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+      backgroundColor: bgColor,
+      body: Column(
+        children: [
+          // HEADER AVEC FLOU ET AVATAR FLOTTANT
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                height: 180,
+                decoration: BoxDecoration(
+                  image: const DecorationImage(
+                    image: AssetImage('assets/images/header_bg.jpg'),
+                    fit: BoxFit.cover,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "FasoCarbu",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.logout, color: Colors.white),
-                        onPressed: () {
-                          Navigator.pushReplacementNamed(context, '/login');
-                        },
-                      ),
-                    ],
+                  color: bgColor,
+                ),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                  child: Container(color: Colors.black.withValues(alpha: 0.3)),
+                ),
+              ),
+              Positioned(
+                left: 20,
+                bottom: -35,
+                child: GestureDetector(
+                  onTap: _pickImage,
+                  child: CircleAvatar(
+                    radius: 35,
+                    backgroundColor: Colors.white,
+                    child: ClipOval(
+                      child: _profileImage != null
+                          ? Image.file(
+                              _profileImage!,
+                              width: 70,
+                              height: 70,
+                              fit: BoxFit.cover,
+                            )
+                          : const Icon(
+                              Icons.person,
+                              color: primaryRed,
+                              size: 50,
+                            ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                // Carte profil
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 10,
-                        spreadRadius: 2,
-                        offset: Offset(0, 4),
+              ),
+              Positioned(
+                left: 100,
+                bottom: 0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Bonjour ${widget.prenom}",
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: _pickImage,
-                        child: CircleAvatar(
-                          radius: 35,
-                          backgroundImage: _profileImage != null
-                              ? FileImage(_profileImage!)
-                              : null,
-                          backgroundColor: Colors.red.shade700,
-                          child: _profileImage == null
-                              ? const Icon(
-                                  Icons.person,
-                                  color: Colors.white,
-                                  size: 30,
-                                )
-                              : null,
-                        ),
+                    ),
+                    Text(
+                      roleLabel(widget.userRole),
+                      style: TextStyle(color: subTextColor, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 50),
+
+          // CARTES
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: GridView.builder(
+                itemCount: tiles.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.85,
+                ),
+                itemBuilder: (_, i) {
+                  final t = tiles[i];
+                  return GestureDetector(
+                    onTap: () => navigate(context, t['route']!),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      const SizedBox(width: 16),
-                      Column(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            "Bienvenue ${widget.nom} 👋",
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                          ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(20),
+                            ),
+                            child: Image.asset(
+                              t['image']!,
+                              height: 120,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
                             ),
                           ),
-                          Text(
-                            formatRole(widget.userRole),
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 14,
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              t['label']!,
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Grille des fonctionnalités
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    children: _buildTilesForRole(context),
-                  ),
-                ),
-              ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
-  }
-
-  List<Widget> _buildTilesForRole(BuildContext context) {
-    final List<Map<String, dynamic>> tiles = [];
-
-    if (widget.userRole == 'ROLE_ADMIN_STATION') {
-      tiles.addAll([
-        {
-          'icon': Icons.people,
-          'label': 'Gérer Agents',
-          'route': '/agents-list',
-        },
-        {
-          'icon': Icons.local_gas_station,
-          'label': 'Gérer Carburants',
-          'route': '/carburants-list',
-        },
-      ]);
-    }
-
-    if (widget.userRole == 'ROLE_CHAUFFEUR') {
-      tiles.addAll([
-        {
-          'icon': Icons.confirmation_num,
-          'label': 'Tickets Station',
-          'route': '/ticket',
-        },
-        {
-          'icon': Icons.history_edu,
-          'label': 'Historique Tickets',
-          'route': '/ticket-list',
-        },
-      ]);
-    }
-
-    if (widget.userRole == 'ROLE_AGENT_STATION') {
-      tiles.addAll([
-        {'icon': Icons.qr_code, 'label': 'Scanner QR', 'route': '/scan-qr'},
-        {
-          'icon': Icons.history_edu,
-          'label': 'Historique Tickets',
-          'route': '/ticket-list-agent',
-        },
-      ]);
-    }
-
-    return tiles
-        .map(
-          (tile) => GestureDetector(
-            onTap: () => navigate(context, tile['route']),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.red.shade100,
-                    blurRadius: 12,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.red.shade700,
-                    radius: 30,
-                    child: Icon(tile['icon'], color: Colors.white, size: 30),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    tile['label'],
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        )
-        .toList();
   }
 }

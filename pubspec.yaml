@@ -35,13 +35,21 @@ flutter:
 
   assets:
     - assets/images/default_avatar.png
-    - assets/images/agent.SVG
-    - assets/images/driver.SVG
-    - assets/images/station_fuel.SVG
+    - assets/images/agent.jpg
+    - assets/images/driver.jpg
+    - assets/images/station_fuel.jpg
     - assets/icons/home.svg
     - assets/icons/profile.svg
+    - assets/images/profile_header.jpg
     - assets/icons/notif.svg
     - assets/images/logo.mobile.png
+    - assets/images/login_bg.jpg
+    - assets/images/history.jpg
+    - assets/images/tickets.jpg
+    - assets/images/scan.jpg
+    - assets/images/carburants.jpg
+    - assets/images/agents.jpg
+    - assets/images/header_bg.jpg
 
 flutter_launcher_icons:
   android: true

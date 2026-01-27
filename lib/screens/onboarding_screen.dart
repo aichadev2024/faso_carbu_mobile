@@ -1,177 +1,229 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:faso_carbu_mobile/screens/login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  final VoidCallback? onFinish;
-  const OnboardingScreen({super.key, this.onFinish});
+  const OnboardingScreen({super.key});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  final PageController _controller = PageController();
+  final PageController _controller = PageController(viewportFraction: 0.85);
   int _currentPage = 0;
 
   final List<Map<String, String>> onboardingData = [
     {
-      "title": "Bienvenue sur FasoCarbu",
-      "description": "Votre solution moderne pour gérer vos tickets carburant.",
-      "image": "assets/images/station_fuel.SVG",
+      "title": "Chauffeurs",
+      "description":
+          "Trouvez rapidement des stations et gérez vos tickets carburant.",
+      "image": "assets/images/station_fuel.jpg",
     },
     {
-      "title": "Chauffeurs & Agents",
-      "description": "Un suivi simple et rapide pour chaque utilisateur.",
-      "image": "assets/images/driver.SVG",
+      "title": "Suivi intelligent",
+      "description": "Un suivi clair pour chauffeurs, agents et stations.",
+      "image": "assets/images/driver.jpg",
     },
     {
-      "title": "Stations de service",
+      "title": "Validation sécurisée",
       "description": "Scannez et validez vos tickets en toute sécurité.",
-      "image": "assets/images/agent.SVG",
+      "image": "assets/images/agent.jpg",
     },
   ];
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          Expanded(
-            child: PageView.builder(
-              controller: _controller,
-              itemCount: onboardingData.length,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentPage = index;
-                });
-              },
-              itemBuilder: (context, index) {
-                return AnimatedOpacity(
-                  opacity: _currentPage == index ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 600),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      AnimatedSlide(
-                        offset: _currentPage == index
-                            ? Offset.zero
-                            : const Offset(0.2, 0),
-                        duration: const Duration(milliseconds: 600),
-                        curve: Curves.easeOut,
-                        child: SvgPicture.asset(
-                          onboardingData[index]["image"]!,
-                          height: 250,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              const SizedBox(height: 30),
+
+              // 🔥 TEXTE ACCROCHE
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: [
+                    Text(
+                      "Bienvenue dans Faso Carbu",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: theme.textTheme.bodyLarge!.color,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      "Connectez-vous avec vos identifiants et profitez d'une gestion simple et sécurisée du carburant.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: theme.textTheme.bodyMedium!.color?.withValues(
+                          alpha: 0.7,
                         ),
                       ),
-                      const SizedBox(height: 30),
-                      Text(
-                        onboardingData[index]["title"]!,
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red,
-                        ),
-                      ),
-                      const SizedBox(height: 15),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 30.0),
-                        child: Text(
-                          onboardingData[index]["description"]!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-          // Indicateurs de page
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              onboardingData.length,
-              (index) => AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                margin: const EdgeInsets.symmetric(horizontal: 5),
-                height: 10,
-                width: _currentPage == index ? 25 : 10,
-                decoration: BoxDecoration(
-                  color: _currentPage == index
-                      ? Colors.red
-                      : Colors.red.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(5),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 30),
-          // Bouton animé
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            child: SizedBox(
-              width: double.infinity,
-              child: GestureDetector(
-                onTapDown: (_) => setState(() {}),
-                onTapUp: (_) {
-                  if (_currentPage == onboardingData.length - 1) {
-                    // ✅ Appel du callback onFinish
-                    if (widget.onFinish != null) {
-                      widget.onFinish!();
-                    } else {
-                      Navigator.of(context).pushReplacement(
-                        PageRouteBuilder(
-                          pageBuilder:
-                              (context, animation, secondaryAnimation) =>
-                                  const LoginScreen(),
-                          transitionDuration: const Duration(milliseconds: 700),
+
+              const SizedBox(height: 20),
+
+              // 🔥 CAROUSEL
+              SizedBox(
+                height: screenHeight * 0.5,
+                child: PageView.builder(
+                  controller: _controller,
+                  itemCount: onboardingData.length,
+                  onPageChanged: (index) =>
+                      setState(() => _currentPage = index),
+                  itemBuilder: (context, index) {
+                    final isActive = index == _currentPage;
+                    return AnimatedScale(
+                      scale: isActive ? 1 : 0.95,
+                      duration: const Duration(milliseconds: 300),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 10),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: theme.cardColor,
+                          borderRadius: BorderRadius.circular(24),
                         ),
-                      );
-                    }
-                  } else {
-                    _controller.nextPage(
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeInOut,
-                    );
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.red.withValues(alpha: 0.4),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // 🔹 IMAGE
+                            AnimatedOpacity(
+                              opacity: 1,
+                              duration: const Duration(milliseconds: 800),
+                              child: Image.asset(
+                                onboardingData[index]["image"]!,
+                                height: screenHeight * 0.25,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            // 🔹 TITRE
+                            Text(
+                              onboardingData[index]["title"]!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: theme.textTheme.bodyLarge!.color,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            // 🔹 DESCRIPTION
+                            Text(
+                              onboardingData[index]["description"]!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: theme.textTheme.bodyMedium!.color
+                                    ?.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // 🔴 INDICATEURS
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  onboardingData.length,
+                  (index) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    height: 8,
+                    width: _currentPage == index ? 24 : 8,
+                    decoration: BoxDecoration(
+                      color: _currentPage == index
+                          ? Colors.red
+                          : Colors.red.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: Center(
-                    child: Text(
-                      _currentPage == onboardingData.length - 1
-                          ? "Commencer"
-                          : "Suivant",
-                      style: const TextStyle(
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // 🔴 BOUTON COMMENCER
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    },
+                    child: const Text(
+                      "Commencer",
+                      style: TextStyle(
                         fontSize: 18,
-                        color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
+
+              const SizedBox(height: 10),
+
+              // ⚪ ME CONNECTER
+              TextButton(
+                onPressed: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  );
+                },
+                child: Text(
+                  "Me connecter",
+                  style: TextStyle(
+                    color: theme.textTheme.bodyMedium!.color?.withValues(
+                      alpha: 0.7,
+                    ),
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -2,13 +2,22 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:logger/logger.dart';
+
 import 'main_screen.dart';
 import 'ForgotPasswordScreen.dart';
+import 'dart:ui';
 
-var logger = Logger();
 const String baseUrl = 'https://faso-carbu-backend-2.onrender.com/api';
 
+/// ================= COLORS (FASO CARBU) =================
+class AppColors {
+  static const Color red = Color(0xFFD32F2F);
+  static const Color redDark = Color(0xFF8B1E1E);
+  static const Color black = Color(0xFF1E1E1E);
+  static const Color grey = Color(0xFF9E9E9E);
+}
+
+/// ================= LOGIN =================
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -16,38 +25,13 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with TickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  String? _error;
+
   bool _loading = false;
   bool _obscurePassword = true;
-
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    );
-    _animationController.forward();
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    _animationController.dispose();
-    super.dispose();
-  }
+  String? _error;
 
   Future<void> _login(BuildContext context) async {
     final email = _emailController.text.trim();
@@ -70,20 +54,11 @@ class _LoginScreenState extends State<LoginScreen>
         body: jsonEncode({"email": email, "motDePasse": password}),
       );
 
-      if (!mounted) return;
-
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final data = jsonDecode(response.body);
         final prefs = await SharedPreferences.getInstance();
 
         await prefs.setString("auth_token", data['token'] ?? '');
-        await prefs.setString("userId", data['id'] ?? '');
-        await prefs.setString("email", data['email'] ?? email);
-        await prefs.setString("role", data['role'] ?? '');
-        await prefs.setString("nom", data['nom'] ?? '');
-        await prefs.setString("prenom", data['prenom'] ?? '');
-
-        logger.i("Connexion réussie : $data");
 
         Navigator.pushReplacement(
           context,
@@ -99,253 +74,231 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         );
       } else {
-        final message =
-            jsonDecode(response.body)['message'] ?? "Identifiants incorrects";
-        setState(() => _error = message);
+        setState(() => _error = "Identifiants incorrects");
       }
-    } catch (e) {
-      logger.e("Erreur login : $e");
-      setState(
-        () => _error =
-            "Connexion impossible : vérifiez votre internet ou vos identifiants.",
-      );
+    } catch (_) {
+      setState(() => _error = "Connexion impossible");
     } finally {
-      if (mounted) setState(() => _loading = false);
+      setState(() => _loading = false);
     }
+  }
+
+  InputDecoration inputStyle(String hint, {Widget? suffix}) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: AppColors.grey),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: AppColors.grey),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: AppColors.red),
+      ),
+      suffixIcon: suffix,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
     return Scaffold(
-      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 🌊 Forme ondulée du haut
-          ClipPath(
-            clipper: TopWaveClipper(),
-            child: Container(
-              height: 260,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0xFF2C2C2C),
-                    Color(0xFF1E1E1E),
-                    Color(0xFFB71C1C),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+          /// 🔹 IMAGE FULL SCREEN
+          SizedBox(
+            height: size.height,
+            width: size.width,
+            child: Image.asset('assets/images/login_bg.jpg', fit: BoxFit.cover),
+          ),
+
+          /// 🔹 FLOU
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Container(color: Colors.transparent),
+          ),
+
+          /// 🔹 OVERLAY SOMBRE
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.65),
+                  Colors.black.withValues(alpha: 0.55),
+                  Colors.black.withValues(alpha: 0.75),
+                ],
               ),
             ),
           ),
 
-          // 🌊 Forme ondulée du bas
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: ClipPath(
-              clipper: BottomWaveClipper(),
-              child: Container(
-                height: 180,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFB71C1C), Color(0xFF2C2C2C)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+          /// 🔹 CONTENU
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                children: [
+                  const SizedBox(height: 60),
+
+                  /// TITRE
+                  const Text(
+                    "Connexion",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ),
-            ),
-          ),
 
-          // 🌟 Contenu principal
-          FadeTransition(
-            opacity: _fadeAnimation,
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 20,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Logo + Titre
-                    Image.asset('assets/images/logo.mobile.png', height: 110),
-                    const SizedBox(height: 12),
-                    const Text(
-                      "FasoCarbu",
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                  const SizedBox(height: 16),
+
+                  /// LOGO
+                  Image.asset('assets/images/logo.mobile.png', height: 80),
+
+                  const SizedBox(height: 80),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+
+                  Text(
+                    "Bienvenue sur FasoCarbu",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: MediaQuery.of(context).size.width * 0.055,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  Text(
+                    "Connectez-vous avec vos identifiants",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: MediaQuery.of(context).size.width * 0.038,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+
+                  /// EMAIL
+                  TextField(
+                    controller: _emailController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: inputStyle("Email").copyWith(
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.15),
+                      hintStyle: const TextStyle(color: Colors.white70),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: const BorderSide(color: AppColors.red),
                       ),
                     ),
-                    const SizedBox(height: 30),
-                    const Text(
-                      "Login",
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.redAccent,
-                      ),
-                    ),
-                    const SizedBox(height: 35),
+                  ),
 
-                    // ✉️ Email
-                    TextField(
-                      controller: _emailController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(
-                          Icons.email_outlined,
-                          color: Colors.redAccent,
-                        ),
-                        hintText: "Adresse email",
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        filled: true,
-                        fillColor: Colors.white12,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 18,
-                          horizontal: 20,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          borderSide: BorderSide.none,
+                  const SizedBox(height: 20),
+
+                  /// PASSWORD
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: inputStyle("Mot de passe").copyWith(
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.15),
+                      hintStyle: const TextStyle(color: Colors.white70),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.4),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // 🔒 Mot de passe
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(
-                          Icons.lock_outline,
-                          color: Colors.redAccent,
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: Colors.white70,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                        hintText: "Mot de passe",
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        filled: true,
-                        fillColor: Colors.white12,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 18,
-                          horizontal: 20,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          borderSide: BorderSide.none,
-                        ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: const BorderSide(color: AppColors.red),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    if (_error != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontSize: 14,
-                          ),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: Colors.white70,
                         ),
-                      ),
-
-                    // 🔁 Mot de passe oublié
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ForgotPasswordScreen(),
-                            ),
-                          );
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
                         },
-                        child: const Text(
-                          "Mot de passe oublié ?",
-                          style: TextStyle(
-                            color: Colors.redAccent,
-                            fontSize: 13,
-                          ),
-                        ),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                  ),
 
-                    // 🔘 Bouton Login
-                    _loading
-                        ? const CircularProgressIndicator(
-                            color: Colors.redAccent,
-                          )
-                        : SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () => _login(context),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.redAccent,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                              ),
-                              child: const Text(
-                                "Login",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(color: AppColors.red),
+                      ),
+                    ),
+
+                  const SizedBox(height: 36),
+
+                  /// BOUTON
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () => _login(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.red,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: _loading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text(
+                              "Se Connecter",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
-                    const SizedBox(height: 25),
-
-                    // 👥 Lien d'inscription
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Text(
-                          "Pas encore membre ? ",
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                        Text(
-                          "Créer un compte",
-                          style: TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
                     ),
-                    const SizedBox(height: 40),
+                  ),
 
-                    const Text(
-                      "© 2025 FasoCarbu | Tous droits réservés",
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                  const SizedBox(height: 18),
+
+                  /// FORGOT
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ForgotPasswordScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      "Mot de passe oublié?",
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+
+                  const SizedBox(height: 40),
+                ],
               ),
             ),
           ),
@@ -355,61 +308,14 @@ class _LoginScreenState extends State<LoginScreen>
   }
 }
 
-// 🌊 ClipPath haut
-class TopWaveClipper extends CustomClipper<Path> {
+/// ================= WAVE CLIPPER =================
+class WaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
-    var path = Path();
-    path.lineTo(0, size.height - 60);
-    var firstControlPoint = Offset(size.width / 4, size.height);
-    var firstEndPoint = Offset(size.width / 2, size.height - 60);
-    var secondControlPoint = Offset(size.width * 3 / 4, size.height - 120);
-    var secondEndPoint = Offset(size.width, size.height - 60);
-
-    path.quadraticBezierTo(
-      firstControlPoint.dx,
-      firstControlPoint.dy,
-      firstEndPoint.dx,
-      firstEndPoint.dy,
-    );
-    path.quadraticBezierTo(
-      secondControlPoint.dx,
-      secondControlPoint.dy,
-      secondEndPoint.dx,
-      secondEndPoint.dy,
-    );
-    path.lineTo(size.width, 0);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
-}
-
-// 🌊 ClipPath bas
-class BottomWaveClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    var path = Path();
-    path.moveTo(0, 40);
-    var firstControlPoint = Offset(size.width / 4, 0);
-    var firstEndPoint = Offset(size.width / 2, 40);
-    var secondControlPoint = Offset(size.width * 3 / 4, 80);
-    var secondEndPoint = Offset(size.width, 40);
-
-    path.quadraticBezierTo(
-      firstControlPoint.dx,
-      firstControlPoint.dy,
-      firstEndPoint.dx,
-      firstEndPoint.dy,
-    );
-    path.quadraticBezierTo(
-      secondControlPoint.dx,
-      secondControlPoint.dy,
-      secondEndPoint.dx,
-      secondEndPoint.dy,
-    );
+    final path = Path();
+    path.moveTo(0, 60);
+    path.quadraticBezierTo(size.width * 0.25, 0, size.width * 0.55, 40);
+    path.quadraticBezierTo(size.width * 0.85, 80, size.width, 40);
     path.lineTo(size.width, size.height);
     path.lineTo(0, size.height);
     path.close();

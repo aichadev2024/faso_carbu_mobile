@@ -148,15 +148,8 @@ class _FasoCarbuAppLoaderState extends State<FasoCarbuAppLoader> {
   Future<void> _initApp() async {
     await wakeUpBackend();
 
-    final prefs = await SharedPreferences.getInstance();
-
     // Toujours démarrer avec Onboarding
-    startScreen = OnboardingScreen(
-      onFinish: () async {
-        await prefs.setBool('seen_onboarding', true);
-        navigatorKey.currentState!.pushReplacementNamed('/login');
-      },
-    );
+    startScreen = const OnboardingScreen();
 
     if (mounted) {
       setState(() {});
@@ -201,8 +194,36 @@ class FasoCarbuApp extends StatelessWidget {
         navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         title: 'FasoCarbu',
-        theme: ThemeData(primarySwatch: Colors.blue),
+
+        // 🔹 Thème clair
+        theme: ThemeData(
+          brightness: Brightness.light,
+          primarySwatch: Colors.red,
+          scaffoldBackgroundColor: Colors.white,
+          cardColor: Colors.grey[200],
+          textTheme: const TextTheme(
+            bodyLarge: TextStyle(color: Colors.black),
+            bodyMedium: TextStyle(color: Colors.black87),
+          ),
+        ),
+
+        // 🔹 Thème sombre
+        darkTheme: ThemeData(
+          brightness: Brightness.dark,
+          primarySwatch: Colors.red,
+          scaffoldBackgroundColor: const Color(0xFF0F1115),
+          cardColor: const Color(0xFF1A1C22),
+          textTheme: const TextTheme(
+            bodyLarge: TextStyle(color: Colors.white),
+            bodyMedium: TextStyle(color: Colors.white70),
+          ),
+        ),
+
+        // 🔹 Choix automatique du thème selon le système
+        themeMode: ThemeMode.system,
+
         home: startScreen,
+
         onGenerateRoute: (settings) {
           logger.i(
             "➡️ onGenerateRoute appelée avec route: ${settings.name}, args: ${settings.arguments}",
@@ -214,13 +235,7 @@ class FasoCarbuApp extends StatelessWidget {
           switch (settings.name) {
             case '/onboarding':
               return MaterialPageRoute(
-                builder: (_) => OnboardingScreen(
-                  onFinish: () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool('seen_onboarding', true);
-                    navigatorKey.currentState!.pushReplacementNamed('/login');
-                  },
-                ),
+                builder: (_) => const OnboardingScreen(),
               );
 
             case '/login':

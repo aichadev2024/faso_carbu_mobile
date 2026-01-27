@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'login_screen.dart';
 import 'main_screen.dart';
 import 'onboarding_screen.dart';
@@ -24,24 +25,16 @@ class _RootScreenState extends State<RootScreen> {
     final firstTime = prefs.getBool('first_time') ?? true;
     final token = prefs.getString('auth_token');
 
+    if (!mounted) return; // ✅ IMPORTANT
+
     if (firstTime) {
-      // marque comme vu
       await prefs.setBool('first_time', false);
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => OnboardingScreen(
-            onFinish: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-              );
-            },
-          ),
-        ),
+        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
       );
     } else if (token != null && token.isNotEmpty) {
-      // récupère les infos utilisateur
       final email = prefs.getString('email') ?? '';
       final role = prefs.getString('role') ?? '';
       final nom = prefs.getString('nom') ?? '';
