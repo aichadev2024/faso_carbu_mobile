@@ -1,379 +1,126 @@
-import 'package:faso_carbu_mobile/screens/agents_list_screen.dart';
-import 'package:faso_carbu_mobile/screens/creer_agent_screen.dart';
-import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:faso_carbu_mobile/screens/login_screen.dart';
-import 'package:faso_carbu_mobile/screens/main_screen.dart';
-import 'package:faso_carbu_mobile/screens/scan_qr_screen.dart';
-import 'package:faso_carbu_mobile/screens/profil_screen.dart';
-import 'package:faso_carbu_mobile/screens/notification_screen.dart';
-import 'package:faso_carbu_mobile/screens/ticket_screen.dart';
-import 'package:faso_carbu_mobile/screens/ticket_history_screen.dart';
-import 'package:faso_carbu_mobile/screens/carburants_list_screen.dart';
-import 'package:faso_carbu_mobile/screens/creer_carburant_screen.dart';
-import 'package:faso_carbu_mobile/screens/ticket_list_agent_screen.dart';
-import 'package:faso_carbu_mobile/screens/onboarding_screen.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
 
-var logger = Logger();
+import 'core/notification_store.dart';
+import 'core/session.dart';
+import 'core/theme/app_theme.dart';
+import 'screens/agents_list_screen.dart';
+import 'screens/carburants_list_screen.dart';
+import 'screens/creer_agent_screen.dart';
+import 'screens/creer_carburant_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/main_screen.dart';
+import 'screens/notification_screen.dart';
+import 'screens/onboarding_screen.dart';
+import 'screens/scan_qr_screen.dart';
+import 'screens/splash_screen.dart';
+import 'screens/ticket_history_screen.dart';
+import 'screens/ticket_list_agent_screen.dart';
+import 'screens/ticket_screen.dart';
+
+final _log = Logger();
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 @pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+Future<void> _onBackgroundMessage(RemoteMessage message) async {
   await Firebase.initializeApp();
-  logger.i(
-    "🔔 Notification reçue en arrière-plan : ${message.notification?.title}",
-  );
+  final n = message.notification;
+  if (n != null) await NotificationStore.add(titre: n.title ?? 'FasoCarbu', message: n.body ?? '');
 }
 
-// Confirmation avant de quitter l’appli
-Future<bool> showExitConfirmation(BuildContext context) async {
-  return await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text("Confirmation"),
-          content: const Text("Voulez-vous vraiment quitter l'application ?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text("Non"),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text("Oui"),
-            ),
-          ],
-        ),
-      ) ??
-      false;
-}
-
-Future<void> wakeUpBackend() async {
-  const backendUrl = "https://faso-carbu-backend-2.onrender.com/api/auth/ping";
-  try {
-    final response = await http
-        .get(Uri.parse(backendUrl))
-        .timeout(const Duration(seconds: 10));
-
-    if (response.statusCode == 200) {
-      logger.i("🚀 Backend réveillé avec succès !");
-    } else {
-      logger.w("⚠️ Backend a répondu avec code ${response.statusCode}");
-    }
-  } catch (e) {
-    logger.w("⏳ Tentative de réveil backend échouée : $e");
-  }
-}
-
-/// 🔹 SplashScreen affiché pendant le réveil du backend
-class SplashScreen extends StatelessWidget {
-  const SplashScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 20),
-            Text("Démarrage du serveur…"),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Session.load();
+  if (!kIsWeb) await _initPush();
+  await NotificationStore.refreshUnread();
+  runApp(const FasoCarbuApp());
+}
 
-  await FirebaseMessaging.instance.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
-
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    logger.i("📨 Notification reçue en premier plan !");
-    if (message.notification != null) {
-      logger.i("🔔 Titre : ${message.notification!.title}");
-      logger.i("📝 Body : ${message.notification!.body}");
-    }
-  });
-
-  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-    logger.i("📲 Application ouverte via une notification !");
-    _handleMessageNavigation(message);
-  });
-
-  RemoteMessage? initialMessage = await FirebaseMessaging.instance
-      .getInitialMessage();
-  if (initialMessage != null) {
-    Future.delayed(const Duration(seconds: 1), () {
-      _handleMessageNavigation(initialMessage);
+/// Notifications push : enregistrées dans l'historique local et,
+/// si elles portent une route, ouvrent l'écran correspondant.
+Future<void> _initPush() async {
+  try {
+    await Firebase.initializeApp();
+    final fm = FirebaseMessaging.instance;
+    await fm.requestPermission(alert: true, badge: true, sound: true);
+    FirebaseMessaging.onBackgroundMessage(_onBackgroundMessage);
+    FirebaseMessaging.onMessage.listen((m) {
+      final n = m.notification;
+      if (n == null) return;
+      NotificationStore.add(titre: n.title ?? 'FasoCarbu', message: n.body ?? '');
+      final ctx = navigatorKey.currentContext;
+      if (ctx != null) {
+        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('${n.title ?? ''} — ${n.body ?? ''}')));
+      }
     });
-  }
-
-  final fcmToken = await FirebaseMessaging.instance.getToken();
-  logger.i("📱 Token FCM : $fcmToken");
-
-  runApp(const FasoCarbuAppLoader());
-}
-
-/// 🔹 Loader qui réveille le backend avant de lancer l’app réelle
-class FasoCarbuAppLoader extends StatefulWidget {
-  const FasoCarbuAppLoader({super.key});
-
-  @override
-  State<FasoCarbuAppLoader> createState() => _FasoCarbuAppLoaderState();
-}
-
-class _FasoCarbuAppLoaderState extends State<FasoCarbuAppLoader> {
-  Widget? startScreen;
-
-  @override
-  void initState() {
-    super.initState();
-    _initApp();
-  }
-
-  Future<void> _initApp() async {
-    await wakeUpBackend();
-
-    // Toujours démarrer avec Onboarding
-    startScreen = const OnboardingScreen();
-
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (startScreen == null) {
-      return const MaterialApp(home: SplashScreen());
-    }
-    return FasoCarbuApp(startScreen: startScreen!);
+    FirebaseMessaging.onMessageOpenedApp.listen(_openFromNotification);
+    final initial = await fm.getInitialMessage();
+    if (initial != null) Future.delayed(const Duration(seconds: 1), () => _openFromNotification(initial));
+  } catch (e) {
+    _log.w('Notifications push indisponibles : $e');
   }
 }
 
-void _handleMessageNavigation(RemoteMessage message) {
-  final data = message.data;
-  logger.i("📦 Données de la notification : $data");
-
-  final route = data['route'];
-  if (route != null && navigatorKey.currentState != null) {
-    navigatorKey.currentState!.pushNamed(route, arguments: data);
-  } else {
-    logger.w("⚠️ Aucune route trouvée dans la notification");
+void _openFromNotification(RemoteMessage message) {
+  final route = message.data['route'];
+  if (route is String && Session.isLoggedIn) {
+    navigatorKey.currentState?.pushNamed(route, arguments: message.data);
   }
 }
 
 class FasoCarbuApp extends StatelessWidget {
-  final Widget startScreen;
-  const FasoCarbuApp({required this.startScreen, super.key});
+  const FasoCarbuApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        if (navigatorKey.currentState?.canPop() ?? false) {
-          return true;
-        }
-        return await showExitConfirmation(navigatorKey.currentContext!);
-      },
-      child: MaterialApp(
-        navigatorKey: navigatorKey,
-        debugShowCheckedModeBanner: false,
-        title: 'FasoCarbu',
-
-        // 🔹 Thème clair
-        theme: ThemeData(
-          brightness: Brightness.light,
-          primarySwatch: Colors.red,
-          scaffoldBackgroundColor: Colors.white,
-          cardColor: Colors.grey[200],
-          textTheme: const TextTheme(
-            bodyLarge: TextStyle(color: Colors.black),
-            bodyMedium: TextStyle(color: Colors.black87),
-          ),
-        ),
-
-        // 🔹 Thème sombre
-        darkTheme: ThemeData(
-          brightness: Brightness.dark,
-          primarySwatch: Colors.red,
-          scaffoldBackgroundColor: const Color(0xFF0F1115),
-          cardColor: const Color(0xFF1A1C22),
-          textTheme: const TextTheme(
-            bodyLarge: TextStyle(color: Colors.white),
-            bodyMedium: TextStyle(color: Colors.white70),
-          ),
-        ),
-
-        // 🔹 Choix automatique du thème selon le système
-        themeMode: ThemeMode.system,
-
-        home: startScreen,
-
-        onGenerateRoute: (settings) {
-          logger.i(
-            "➡️ onGenerateRoute appelée avec route: ${settings.name}, args: ${settings.arguments}",
-          );
-
-          final Map<String, dynamic> args =
-              (settings.arguments as Map<String, dynamic>?) ?? {};
-
-          switch (settings.name) {
-            case '/onboarding':
-              return MaterialPageRoute(
-                builder: (_) => const OnboardingScreen(),
-              );
-
-            case '/login':
-              return MaterialPageRoute(builder: (_) => const LoginScreen());
-
-            case '/home':
-              return MaterialPageRoute(
-                builder: (_) {
-                  return FutureBuilder<SharedPreferences>(
-                    future: SharedPreferences.getInstance(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return const Scaffold(
-                          body: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-                      final prefs = snapshot.data!;
-                      return MainScreen(
-                        email:
-                            args['userEmail'] ?? prefs.getString('email') ?? '',
-                        role: args['userRole'] ?? prefs.getString('role') ?? '',
-                        token:
-                            args['token'] ??
-                            prefs.getString('auth_token') ??
-                            '',
-                        nom: args['nom'] ?? prefs.getString('nom') ?? '',
-                        prenom:
-                            args['prenom'] ?? prefs.getString('prenom') ?? '',
-                        userId:
-                            args['userId'] ?? prefs.getString('userId') ?? '',
-                      );
-                    },
-                  );
-                },
-              );
-
-            case '/ticket':
-              return MaterialPageRoute(
-                builder: (_) => TicketScreen(token: args['token'] ?? ''),
-              );
-
-            case '/ticket-list':
-              return MaterialPageRoute(
-                builder: (_) => TicketHistoryScreen(token: args['token'] ?? ''),
-              );
-
-            case '/ticket-list-agent':
-              return MaterialPageRoute(
-                builder: (_) => TicketListAgentScreen(
-                  token: args['token'] ?? '',
-                  agentId: args['userId'] ?? '',
-                ),
-              );
-
-            case '/scan-qr':
-              return MaterialPageRoute(
-                builder: (_) => ScanQrScreen(
-                  token: args['token'] ?? '',
-                  userId: args['userId'] ?? '',
-                ),
-              );
-
-            case '/agents-list':
-              return MaterialPageRoute(
-                builder: (_) => AgentsListScreen(
-                  token: args['token'] ?? '',
-                  adminStationId: args['adminStationId'] ?? '',
-                ),
-              );
-
-            case '/carburants-list':
-              return MaterialPageRoute(
-                builder: (_) => CarburantsListScreen(
-                  token: args['token'] ?? '',
-                  adminStationId: args['adminStationId'] ?? '',
-                ),
-              );
-
-            case '/creer-agent_station':
-              return MaterialPageRoute(
-                builder: (_) => CreerAgentScreen(
-                  token: args['token'] ?? '',
-                  adminStationId: args['adminStationId'] ?? '',
-                ),
-              );
-
-            case '/creer-carburant':
-              return MaterialPageRoute(
-                builder: (_) => CreerCarburantScreen(
-                  token: args['token'] ?? '',
-                  adminStationId: args['adminStationId'] ?? '',
-                ),
-              );
-
-            case '/profil':
-              return MaterialPageRoute(
-                builder: (_) => ProfilScreen(
-                  userEmail: args['userEmail'] ?? '',
-                  userRole: args['userRole'] ?? '',
-                  token: args['token'] ?? '',
-                  nom: args['nom'] ?? '',
-                  prenom: args['prenom'] ?? '',
-                  userId: args['userId'] ?? '',
-                  onLogout: () {
-                    Navigator.pushNamedAndRemoveUntil(
-                      navigatorKey.currentContext!,
-                      '/login',
-                      (route) => false,
-                    );
-                  },
-                ),
-              );
-
-            case '/notifications':
-              return MaterialPageRoute(
-                builder: (_) => const NotificationScreen(),
-              );
-
-            default:
-              return _errorRoute(settings.name, args);
-          }
-        },
-      ),
+    return MaterialApp(
+      navigatorKey: navigatorKey,
+      debugShowCheckedModeBanner: false,
+      title: 'FasoCarbu',
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ThemeMode.system,
+      home: const SplashScreen(),
+      onGenerateRoute: _route,
     );
   }
 
-  Route _errorRoute([String? routeName, dynamic args]) {
-    logger.w("⚠️ Erreur de navigation ! Route: $routeName, args: $args");
-    return MaterialPageRoute(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text("Erreur")),
-        body: Center(
-          child: Text(
-            "Page non trouvée ou arguments manquants\nRoute: $routeName\nArgs: $args",
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
-    );
+  static Route<dynamic> _route(RouteSettings settings) {
+    final token = Session.token;
+    final userId = Session.userId;
+    Widget page;
+    switch (settings.name) {
+      case '/onboarding':
+        page = const OnboardingScreen();
+      case '/login':
+        page = const LoginScreen();
+      case '/home':
+        page = const MainScreen();
+      case '/ticket':
+        page = TicketScreen(token: token);
+      case '/ticket-list':
+        page = TicketHistoryScreen(token: token);
+      case '/ticket-list-agent':
+        page = TicketListAgentScreen(token: token, agentId: userId);
+      case '/scan-qr':
+        page = ScanQrScreen(token: token, userId: userId);
+      case '/agents-list':
+        page = AgentsListScreen(token: token, adminStationId: userId);
+      case '/carburants-list':
+        page = CarburantsListScreen(token: token, adminStationId: userId);
+      case '/creer-agent_station':
+        page = CreerAgentScreen(token: token, adminStationId: userId);
+      case '/creer-carburant':
+        page = CreerCarburantScreen(token: token, adminStationId: userId);
+      case '/notifications':
+        page = const NotificationScreen();
+      default:
+        page = Session.isLoggedIn ? const MainScreen() : const LoginScreen();
+    }
+    if (!Session.isLoggedIn && settings.name != '/onboarding') page = const LoginScreen();
+    return MaterialPageRoute(settings: settings, builder: (_) => page);
   }
 }

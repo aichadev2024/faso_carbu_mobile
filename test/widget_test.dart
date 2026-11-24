@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:faso_carbu_mobile/main.dart';
+import 'package:faso_carbu_mobile/core/widgets/app_widgets.dart';
 
 void main() {
-  testWidgets('FasoCarbuApp loads with startScreen', (
-    WidgetTester tester,
-  ) async {
-    // Crée un startScreen factice pour le test
-    final startScreen = Scaffold(body: Center(child: Text('Start Screen')));
+  test('statusInfo traduit les statuts backend', () {
+    expect(statusInfo('EN_ATTENTE').label, 'En attente');
+    expect(statusInfo('VALIDEE').tone, Tone.success);
+    expect(statusInfo('REJETER').tone, Tone.danger);
+    expect(statusInfo(null).label, '—');
+  });
 
-    // Build notre app et déclenche un frame
-    await tester.pumpWidget(FasoCarbuApp(startScreen: startScreen));
+  test('formatNumber sépare les milliers', () {
+    expect(formatNumber(1250000), '1 250 000');
+    expect(formatNumber(12.5, decimals: 1), '12,5');
+  });
 
-    // Vérifie que le startScreen s'affiche
-    expect(find.text('Start Screen'), findsOneWidget);
+  testWidgets('StatusBadge affiche le libellé du statut', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: StatusBadge.fromStatus('VALIDEE'))));
+    expect(find.text('Validé'), findsOneWidget);
   });
 }

@@ -1,249 +1,221 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'creer_carburant_screen.dart';
 
+import '../core/api.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/app_widgets.dart';
+import '../core/widgets/mobile_widgets.dart';
+
+/// Admin de station : carburants proposés et leurs prix.
 class CarburantsListScreen extends StatefulWidget {
+  const CarburantsListScreen({super.key, required this.token, required this.adminStationId});
   final String token;
   final String adminStationId;
-
-  const CarburantsListScreen({
-    super.key,
-    required this.token,
-    required this.adminStationId,
-  });
 
   @override
   State<CarburantsListScreen> createState() => _CarburantsListScreenState();
 }
 
 class _CarburantsListScreenState extends State<CarburantsListScreen> {
-  List carburants = [];
-  bool isLoading = false;
+  List<Map<String, dynamic>> _carburants = [];
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    fetchCarburants();
+    _load();
   }
 
-  Future<void> fetchCarburants() async {
-    setState(() => isLoading = true);
-
-    final response = await http.get(
-      Uri.parse(
-        "https://faso-carbu-backend-2.onrender.com/api/admin-stations/${widget.adminStationId}/carburants",
-      ),
-      headers: {"Authorization": "Bearer ${widget.token}"},
-    );
-
-    if (response.statusCode == 200) {
-      setState(() {
-        carburants = jsonDecode(response.body);
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ Erreur chargement : ${response.body}")),
-      );
-    }
-
-    setState(() => isLoading = false);
-  }
-
-  Future<void> supprimerCarburant(int carburantId) async {
-    final response = await http.delete(
-      Uri.parse(
-        "https://faso-carbu-backend-2.onrender.com/api/admin-stations/carburants/$carburantId",
-      ),
-      headers: {"Authorization": "Bearer ${widget.token}"},
-    );
-
-    if (response.statusCode == 200 || response.statusCode == 204) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("✅ Carburant supprimé")));
-      fetchCarburants();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ Erreur suppression : ${response.body}")),
-      );
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      _carburants = Api.asList(await Api.get('/admin-stations/${widget.adminStationId}/carburants'));
+    } on ApiException catch (e) {
+      _error = e.message;
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> modifierCarburant(Map carburant) async {
-    final nomController = TextEditingController(text: carburant['nom']);
-    final prixController = TextEditingController(
-      text: carburant['prix'].toString(),
-    );
-
-    await showDialog(
+  Future<void> _edit(Map<String, dynamic> c) async {
+    final saved = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: const [
-            Icon(Icons.edit, color: Colors.blue),
-            SizedBox(width: 8),
-            Text("Modifier Carburant"),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nomController,
-              decoration: const InputDecoration(
-                labelText: "Nom",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: prixController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Prix (FCFA)",
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Annuler"),
-          ),
-          ElevatedButton.icon(
-            onPressed: () async {
-              final response = await http.put(
-                Uri.parse(
-                  "https://faso-carbu-backend-2.onrender.com/api/admin-stations/${widget.adminStationId}/carburants/${carburant['id']}",
-                ),
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": "Bearer ${widget.token}",
-                },
-                body: jsonEncode({
-                  "nom": nomController.text,
-                  "prix": double.tryParse(prixController.text) ?? 0,
-                }),
-              );
-
-              Navigator.pop(context);
-
-              if (response.statusCode == 200) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("✅ Carburant modifié")),
-                );
-                fetchCarburants();
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("❌ Erreur : ${response.body}")),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            icon: const Icon(Icons.save),
-            label: const Text("Enregistrer"),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _EditSheet(carburant: c, adminStationId: widget.adminStationId),
     );
+    if (saved == true && mounted) {
+      showAppSnack(context, 'Prix mis à jour.', tone: Tone.success);
+      _load();
+    }
   }
 
-  void goToCreateCarburant() async {
-    final result = await Navigator.push(
+  Future<void> _delete(Map<String, dynamic> c) async {
+    final ok = await confirmDialog(
       context,
-      MaterialPageRoute(
-        builder: (_) => CreerCarburantScreen(
-          token: widget.token,
-          adminStationId: widget.adminStationId,
-        ),
-      ),
+      title: 'Supprimer « ${c['nom']} » ?',
+      message: 'Ce carburant ne sera plus proposé dans les demandes.',
+      confirmLabel: 'Supprimer',
+      destructive: true,
     );
-
-    if (result == true) {
-      fetchCarburants();
+    if (!ok) return;
+    try {
+      await Api.delete('/admin-stations/carburants/${c['id']}');
+      if (!mounted) return;
+      showAppSnack(context, 'Carburant supprimé.', tone: Tone.success);
+      _load();
+    } on ApiException catch (e) {
+      if (mounted) showAppSnack(context, e.message, tone: Tone.danger);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text("⛽ Liste Carburants"),
-        backgroundColor: Colors.red.shade700,
-        elevation: 4,
-      ),
+      appBar: AppBar(title: const Text('Carburants et prix')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: goToCreateCarburant,
-        backgroundColor: Colors.red.shade700,
-        icon: const Icon(Icons.add),
-        label: const Text("Ajouter"),
+        onPressed: () => Navigator.pushNamed(context, '/creer-carburant').then((_) => _load()),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Ajouter'),
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : carburants.isEmpty
-          ? const Center(
-              child: Text(
-                "Aucun carburant trouvé",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: carburants.length,
-              itemBuilder: (context, index) {
-                final carburant = carburants[index];
-                return Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  elevation: 3,
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    leading: const CircleAvatar(
-                      backgroundColor: Colors.red,
-                      child: Icon(Icons.local_gas_station, color: Colors.white),
-                    ),
-                    title: Text(
-                      carburant['nom'],
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+      body: _loading && _carburants.isEmpty
+          ? const LoadingView()
+          : RefreshableList(
+              onRefresh: _load,
+              children: [
+                if (_error != null)
+                  ErrorState(message: _error!, onRetry: _load)
+                else if (_carburants.isEmpty)
+                  const EmptyState(
+                    icon: Icons.local_gas_station_outlined,
+                    title: 'Aucun carburant',
+                    message: 'Ajoutez les carburants vendus dans votre station et leur prix au litre.',
+                  )
+                else
+                  for (final c in _carburants) ...[
+                    Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => _edit(c),
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          child: Row(children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Tone.brand.softBg(context),
+                                borderRadius: BorderRadius.circular(AppRadius.md),
+                              ),
+                              child: Icon(Icons.local_gas_station_rounded, color: Tone.brand.fg),
+                            ),
+                            const SizedBox(width: AppSpacing.lg),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${c['nom']}', style: t.titleMedium),
+                                  Text('Prix au litre', style: t.bodySmall),
+                                ],
+                              ),
+                            ),
+                            Text('${formatNumber(double.tryParse('${c['prix'] ?? 0}'))} F/L', style: t.titleMedium),
+                            PopupMenuButton<String>(
+                              onSelected: (v) => v == 'edit' ? _edit(c) : _delete(c),
+                              itemBuilder: (_) => [
+                                const PopupMenuItem(value: 'edit', child: Text('Modifier le prix')),
+                                PopupMenuItem(value: 'delete', child: Text('Supprimer', style: TextStyle(color: Tone.danger.fg))),
+                              ],
+                            ),
+                          ]),
+                        ),
                       ),
                     ),
-                    subtitle: Text(
-                      "Prix : ${carburant['prix']} FCFA",
-                      style: TextStyle(color: Colors.grey[700]),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => modifierCarburant(carburant),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => supprimerCarburant(carburant['id']),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+              ],
+            ),
+    );
+  }
+}
+
+class _EditSheet extends StatefulWidget {
+  const _EditSheet({required this.carburant, required this.adminStationId});
+  final Map<String, dynamic> carburant;
+  final String adminStationId;
+
+  @override
+  State<_EditSheet> createState() => _EditSheetState();
+}
+
+class _EditSheetState extends State<_EditSheet> {
+  late final _nom = TextEditingController(text: '${widget.carburant['nom'] ?? ''}');
+  late final _prix = TextEditingController(text: '${widget.carburant['prix'] ?? ''}'.replaceAll(RegExp(r'\.0$'), ''));
+  final _formKey = GlobalKey<FormState>();
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _nom.dispose();
+    _prix.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await Api.put('/admin-stations/${widget.adminStationId}/carburants/${widget.carburant['id']}', {
+        'nom': _nom.text.trim(),
+        'prix': double.parse(_prix.text.replaceAll(',', '.')),
+      });
+      if (mounted) Navigator.pop(context, true);
+    } on ApiException catch (e) {
+      setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          AppSpacing.xl, 0, AppSpacing.xl, MediaQuery.viewInsetsOf(context).bottom + AppSpacing.xl),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Modifier le carburant', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: AppSpacing.lg),
+            if (_error != null) ...[InlineAlert(message: _error!), const SizedBox(height: AppSpacing.lg)],
+            AppTextField(label: 'Nom', controller: _nom, required: true, icon: Icons.local_gas_station_outlined),
+            const SizedBox(height: AppSpacing.lg),
+            AppTextField(
+              label: 'Prix au litre (FCFA)',
+              controller: _prix,
+              icon: Icons.payments_outlined,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              validator: (v) {
+                final p = double.tryParse((v ?? '').replaceAll(',', '.'));
+                return (p == null || p <= 0) ? 'Prix invalide' : null;
               },
             ),
+            const SizedBox(height: AppSpacing.xl),
+            PrimaryButton(label: 'Enregistrer', onPressed: _save, loading: _loading, expand: true),
+          ],
+        ),
+      ),
     );
   }
 }

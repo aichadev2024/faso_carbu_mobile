@@ -1,211 +1,206 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:logger/logger.dart';
 
-var logger = Logger();
+import '../core/api.dart';
+import '../core/theme/app_colors.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/app_widgets.dart';
+import '../core/widgets/mobile_widgets.dart';
 
+/// Agent de station : scanne le QR code d'un ticket, vérifie puis valide le plein.
 class ScanQrScreen extends StatefulWidget {
+  const ScanQrScreen({super.key, required this.token, required this.userId});
   final String token;
   final String userId;
-
-  const ScanQrScreen({super.key, required this.token, required this.userId});
 
   @override
   State<ScanQrScreen> createState() => _ScanQrScreenState();
 }
 
 class _ScanQrScreenState extends State<ScanQrScreen> {
-  String? qrCode;
-  Map<String, dynamic>? ticketData;
-  bool _isLoading = false;
-  Future<void> _validerTicket(String rawQr) async {
-    setState(() {
-      _isLoading = true;
-    });
+  final _controller = MobileScannerController(detectionSpeed: DetectionSpeed.noDuplicates);
+  bool _handling = false;
 
-    try {
-      final payload = {
-        "codeQr": rawQr, // ✅ on envoie le QR brut (string JSON)
-        "montant":
-            ticketData?['montant']?.toString() ?? "0", // ✅ toujours un montant
-      };
-
-      logger.i("📤 Envoi au backend:");
-      logger.i(
-        "URL: https://faso-carbu-backend-2.onrender.com/api/tickets/valider",
-      );
-      logger.i("Headers: {Authorization: Bearer ${widget.token}}");
-      logger.i("Payload: $payload");
-
-      final response = await http.post(
-        Uri.parse(
-          "https://faso-carbu-backend-2.onrender.com/api/tickets/valider",
-        ),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer ${widget.token}",
-        },
-        body: jsonEncode(payload),
-      );
-
-      logger.i("📥 Réponse backend (${response.statusCode}): ${response.body}");
-
-      if (response.statusCode == 200) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("✅ Ticket validé avec succès !"),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "❌ Erreur (${response.statusCode}) : ${response.body}",
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("⚠️ Erreur de connexion : $e"),
-          backgroundColor: Colors.orange,
-        ),
-      );
-    }
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
-  void _onDetect(BarcodeCapture capture) async {
-    final String? code = capture.barcodes.first.rawValue;
+  Future<void> _onDetect(BarcodeCapture capture) async {
+    if (_handling || capture.barcodes.isEmpty) return;
+    final raw = capture.barcodes.first.rawValue;
+    if (raw == null) return;
+    _handling = true;
+    await _controller.stop();
 
-    debugPrint("📷 QR détecté brut: $code");
+    Map<String, dynamic>? data;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) data = Map<String, dynamic>.from(decoded);
+    } catch (_) {}
 
-    if (code != null && mounted && !_isLoading && code != qrCode) {
-      try {
-        final decoded = jsonDecode(code);
-        debugPrint("📦 QR décodé JSON: $decoded");
-
-        setState(() {
-          qrCode = code;
-          ticketData = decoded;
-        });
-
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text("Confirmer validation"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Montant : ${decoded['montant']}"),
-                Text("Quantité : ${decoded['quantite']}"),
-                Text("Carburant : ${decoded['carburant']}"),
-                Text("Véhicule : ${decoded['vehicule']}"),
-                Text("Station : ${decoded['station']}"),
-                Text("Date émission : ${decoded['dateEmission']}"),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text("Annuler"),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text("Valider"),
-              ),
-            ],
-          ),
-        );
-
-        if (confirm == true) {
-          _validerTicket(code);
-        }
-      } catch (e) {
-        debugPrint("❌ Erreur lors du décodage QR: $e");
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("❌ QR invalide : $e"),
-            backgroundColor: Colors.red,
-          ),
-        );
+    if (!mounted) return;
+    if (data == null) {
+      await _showResult(success: false, message: 'Ce QR code n\'est pas un ticket FasoCarbu.');
+    } else {
+      final validated = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) => _ConfirmSheet(raw: raw, data: data!),
+      );
+      if (validated == true && mounted) {
+        await _showResult(success: true, message: '${data['quantite'] ?? ''} L de ${data['carburant'] ?? 'carburant'} validés.');
       }
     }
+    _handling = false;
+    if (mounted) await _controller.start();
+  }
+
+  Future<void> _showResult({required bool success, required String message}) {
+    return showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(
+          success ? Icons.check_circle_rounded : Icons.error_rounded,
+          size: 48,
+          color: success ? AppColors.success : AppColors.danger,
+        ),
+        title: Text(success ? 'Ticket validé' : 'Ticket refusé'),
+        content: Text(message, textAlign: TextAlign.center),
+        actions: [
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Scanner un autre ticket')),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text("Scanner un QR Ticket"),
-        backgroundColor: Colors.red.shade700,
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Icon(Icons.qr_code_scanner, color: Colors.white),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Scanner un ticket'),
+        actions: [
+          IconButton(
+            tooltip: 'Lampe',
+            color: Colors.white,
+            icon: const Icon(Icons.flashlight_on_outlined),
+            onPressed: () => _controller.toggleTorch(),
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          Expanded(
-            child: Stack(
-              children: [
-                MobileScanner(onDetect: _onDetect),
-                if (_isLoading)
-                  Container(
-                    color: Colors.black45,
-                    child: const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (ticketData != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border(
-                  top: BorderSide(color: Colors.red.shade200, width: 1),
+          MobileScanner(
+            controller: _controller,
+            onDetect: _onDetect,
+            errorBuilder: (context, error) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Text(
+                  'Caméra indisponible. Autorisez l\'accès à la caméra dans les réglages du téléphone.',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
+                  textAlign: TextAlign.center,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "📌 Infos du ticket scanné :",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  Text("Montant : ${ticketData!['montant']}"),
-                  Text("Quantité : ${ticketData!['quantite']}"),
-                  Text("Carburant : ${ticketData!['carburant']}"),
-                  Text("Véhicule : ${ticketData!['vehicule']}"),
-                  Text("Station : ${ticketData!['station']}"),
-                  Text("Date : ${ticketData!['dateEmission']}"),
-                ],
+            ),
+          ),
+          // Cadre de visée
+          Center(
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.brandOnDark, width: 3),
+                borderRadius: BorderRadius.circular(24),
               ),
             ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 48,
+            child: Text(
+              'Placez le QR code du ticket dans le cadre',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _ConfirmSheet extends StatefulWidget {
+  const _ConfirmSheet({required this.raw, required this.data});
+  final String raw;
+  final Map<String, dynamic> data;
+
+  @override
+  State<_ConfirmSheet> createState() => _ConfirmSheetState();
+}
+
+class _ConfirmSheetState extends State<_ConfirmSheet> {
+  bool _loading = false;
+  String? _error;
+
+  Future<void> _valider() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await Api.post('/tickets/valider', {
+        'codeQr': widget.raw,
+        'montant': '${widget.data['montant'] ?? 0}',
+      });
+      if (mounted) Navigator.pop(context, true);
+    } on ApiException catch (e) {
+      setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final d = widget.data;
+    final montant = double.tryParse('${d['montant'] ?? 0}') ?? 0;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Vérifiez le ticket', style: t.headlineSmall),
+            const SizedBox(height: AppSpacing.lg),
+            Center(child: Text('${d['quantite'] ?? '—'} L', style: t.displaySmall)),
+            Center(child: Text('${d['carburant'] ?? ''} · ${formatNumber(montant)} FCFA', style: t.bodyLarge)),
+            const SizedBox(height: AppSpacing.lg),
+            KeyValueRow(icon: Icons.directions_car_outlined, label: 'Véhicule', value: '${d['vehicule'] ?? ''}'),
+            KeyValueRow(icon: Icons.place_outlined, label: 'Station', value: '${d['station'] ?? ''}'),
+            KeyValueRow(
+              icon: Icons.event_outlined,
+              label: 'Émis le',
+              value: formatDate(DateTime.tryParse('${d['dateEmission'] ?? ''}'), withTime: true),
+            ),
+            if (_error != null) ...[const SizedBox(height: AppSpacing.md), InlineAlert(message: _error!)],
+            const SizedBox(height: AppSpacing.xl),
+            PrimaryButton(label: 'Valider le plein', icon: Icons.check_rounded, onPressed: _valider, loading: _loading, expand: true),
+            const SizedBox(height: AppSpacing.sm),
+            OutlinedButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+          ],
+        ),
       ),
     );
   }

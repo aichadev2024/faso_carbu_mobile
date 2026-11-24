@@ -1,155 +1,57 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
+import '../core/api.dart';
+import 'ticket_screen.dart';
+
+/// Agent de station : tickets qu'il a validés.
 class TicketListAgentScreen extends StatefulWidget {
+  const TicketListAgentScreen({super.key, required this.token, required this.agentId});
   final String token;
   final String agentId;
-
-  const TicketListAgentScreen({
-    super.key,
-    required this.token,
-    required this.agentId,
-  });
 
   @override
   State<TicketListAgentScreen> createState() => _TicketListAgentScreenState();
 }
 
 class _TicketListAgentScreenState extends State<TicketListAgentScreen> {
-  List<dynamic> tickets = [];
-  bool isLoading = true;
+  List<Map<String, dynamic>> _tickets = [];
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    fetchTickets();
+    _load();
   }
 
-  Future<void> fetchTickets() async {
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final response = await http.get(
-        Uri.parse(
-          "https://faso-carbu-backend-2.onrender.com/api/tickets/mes-tickets-valides",
-        ),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer ${widget.token}",
-        },
-      );
-
-      if (response.statusCode == 200) {
-        setState(() {
-          tickets = jsonDecode(response.body);
-          isLoading = false;
-        });
-      } else {
-        setState(() => isLoading = false);
-        debugPrint("Erreur API: ${response.body}");
-      }
-    } catch (e) {
-      setState(() => isLoading = false);
-      debugPrint("Exception: $e");
-    }
-  }
-
-  Color _getStatusColor(String statut) {
-    switch (statut) {
-      case "VALIDE":
-        return Colors.green.shade600;
-      case "EN_ATTENTE":
-        return Colors.orange.shade600;
-      default:
-        return Colors.grey.shade600;
+      _tickets = Api.asList(await Api.get('/tickets/mes-tickets-valides'))
+        ..sort((a, b) => '${b['dateValidation']}'.compareTo('${a['dateValidation']}'));
+    } on ApiException catch (e) {
+      _error = e.message;
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        title: const Text("Tickets Agent"),
-        centerTitle: true,
-        backgroundColor: Colors.red.shade700,
-        elevation: 3,
+      appBar: AppBar(title: const Text('Tickets validés')),
+      body: TicketListBody(
+        loading: _loading,
+        error: _error,
+        tickets: _tickets,
+        onRefresh: _load,
+        showBeneficiaire: true,
+        emptyTitle: 'Aucune validation',
+        emptyMessage: 'Les tickets que vous scannez et validez apparaîtront ici.',
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : tickets.isEmpty
-          ? const Center(
-              child: Text(
-                "Aucun ticket trouvé 🚫",
-                style: TextStyle(fontSize: 16, color: Colors.black54),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: tickets.length,
-              itemBuilder: (context, index) {
-                final ticket = tickets[index];
-
-                final statut = ticket["statut"] ?? "-";
-                final chauffeur =
-                    "${ticket['utilisateurNom'] ?? ''} ${ticket['utilisateurPrenom'] ?? ''}";
-                final carburant = ticket["carburantNom"] ?? "---";
-                final quantite = ticket["quantite"] ?? 0;
-                final somme = ticket["somme"] ?? 0;
-                final dateValidation = ticket["dateValidation"] ?? "---";
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 6,
-                  shadowColor: Colors.red.shade100,
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
-                    leading: CircleAvatar(
-                      radius: 25,
-                      backgroundColor: _getStatusColor(statut),
-                      child: const Icon(
-                        Icons.receipt_long,
-                        color: Colors.white,
-                        size: 26,
-                      ),
-                    ),
-                    title: Text(
-                      "$chauffeur - $carburant",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Quantité : $quantite L"),
-                          Text(
-                            "💰 Somme : $somme FCFA",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green,
-                            ),
-                          ),
-                          Text("Validé le : $dateValidation"),
-                        ],
-                      ),
-                    ),
-                    trailing: Text(
-                      statut,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: _getStatusColor(statut),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
     );
   }
 }

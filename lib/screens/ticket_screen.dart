@@ -1,108 +1,111 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
+import '../core/api.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/app_widgets.dart';
+import '../core/widgets/mobile_widgets.dart';
 import 'ticket_detail_screen.dart';
 
+/// Chauffeur : tous ses tickets, ceux à utiliser en premier.
 class TicketScreen extends StatefulWidget {
-  final String token;
-
   const TicketScreen({super.key, required this.token});
+  final String token;
 
   @override
   State<TicketScreen> createState() => _TicketScreenState();
 }
 
 class _TicketScreenState extends State<TicketScreen> {
-  late Future<List<dynamic>> _ticketsFuture;
+  List<Map<String, dynamic>> _tickets = [];
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _ticketsFuture = fetchTickets();
+    _load();
   }
 
-  Future<List<dynamic>> fetchTickets() async {
-    final response = await http.get(
-      Uri.parse(
-        "https://faso-carbu-backend-2.onrender.com/api/tickets/mes-tickets",
-      ),
-      headers: {
-        'Authorization': 'Bearer ${widget.token}',
-        'Content-Type': 'application/json',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as List<dynamic>;
-    } else {
-      throw Exception("Erreur lors du chargement des tickets");
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final list = Api.asList(await Api.get('/tickets/mes-tickets'));
+      int rank(Map t) => '${t['statut']}'.toUpperCase() == 'EN_ATTENTE' ? 0 : 1;
+      list.sort((a, b) {
+        final r = rank(a).compareTo(rank(b));
+        return r != 0 ? r : '${b['dateEmission']}'.compareTo('${a['dateEmission']}');
+      });
+      _tickets = list;
+    } on ApiException catch (e) {
+      _error = e.message;
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("🎟️ Mes Tickets"),
-        backgroundColor: Colors.red.shade700,
+      appBar: AppBar(title: const Text('Mes tickets')),
+      body: TicketListBody(
+        loading: _loading,
+        error: _error,
+        tickets: _tickets,
+        onRefresh: _load,
+        emptyTitle: 'Aucun ticket',
+        emptyMessage: 'Vos tickets apparaîtront ici dès qu\'une demande sera validée par votre gestionnaire.',
       ),
-      body: FutureBuilder<List<dynamic>>(
-        future: _ticketsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                "Erreur : ${snapshot.error}",
-                style: const TextStyle(color: Colors.red),
-              ),
-            );
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text("Aucun ticket trouvé"));
-          }
+    );
+  }
+}
 
-          final tickets = snapshot.data!;
+/// Corps commun des listes de tickets : chargement, erreur, vide, liste.
+class TicketListBody extends StatelessWidget {
+  const TicketListBody({
+    super.key,
+    required this.loading,
+    required this.error,
+    required this.tickets,
+    required this.onRefresh,
+    required this.emptyTitle,
+    required this.emptyMessage,
+    this.showBeneficiaire = false,
+    this.header,
+  });
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: tickets.length,
-            itemBuilder: (context, index) {
-              final ticket = tickets[index];
+  final bool loading;
+  final String? error;
+  final List<Map<String, dynamic>> tickets;
+  final Future<void> Function() onRefresh;
+  final String emptyTitle;
+  final String emptyMessage;
+  final bool showBeneficiaire;
+  final Widget? header;
 
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                child: ListTile(
-                  leading: const Icon(
-                    Icons.local_gas_station,
-                    color: Colors.red,
-                  ),
-                  title: Text("Ticket #${ticket['id']}"),
-                  subtitle: Text(
-                    "Carburant: ${ticket['carburantNom']} - ${ticket['quantite']} L\n"
-                    "💰 Somme: ${ticket['somme'] ?? 0} FCFA\n" // 🔹 ajouté
-                    "Statut: ${ticket['statut']}",
-                  ),
-
-                  trailing: const Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey,
-                  ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TicketDetailScreen(ticket: ticket),
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
-          );
-        },
-      ),
+  @override
+  Widget build(BuildContext context) {
+    if (loading && tickets.isEmpty) return const LoadingView();
+    return RefreshableList(
+      onRefresh: onRefresh,
+      children: [
+        if (header != null) ...[header!, const SizedBox(height: AppSpacing.lg)],
+        if (error != null)
+          ErrorState(message: error!, onRetry: onRefresh)
+        else if (tickets.isEmpty)
+          EmptyState(icon: Icons.confirmation_number_outlined, title: emptyTitle, message: emptyMessage)
+        else
+          for (final t in tickets) ...[
+            TicketTile(
+              ticket: t,
+              showBeneficiaire: showBeneficiaire,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TicketDetailScreen(ticket: t))),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+      ],
     );
   }
 }
