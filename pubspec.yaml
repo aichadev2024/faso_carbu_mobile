@@ -13,6 +13,7 @@ dependencies:
   shared_preferences: ^2.2.2
   logger: ^2.1.0
   http: ^1.4.0
+  google_fonts: ^6.2.1
   mobile_scanner: ^7.0.1
   fl_chart: ^1.0.0
   sqflite: ^2.3.0
@@ -33,23 +34,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  assets:
-    - assets/images/default_avatar.png
-    - assets/images/agent.jpg
-    - assets/images/driver.jpg
-    - assets/images/station_fuel.jpg
-    - assets/icons/home.svg
-    - assets/icons/profile.svg
-    - assets/images/profile_header.jpg
-    - assets/icons/notif.svg
-    - assets/images/logo.mobile.png
-    - assets/images/login_bg.jpg
-    - assets/images/history.jpg
-    - assets/images/tickets.jpg
-    - assets/images/scan.jpg
-    - assets/images/carburants.jpg
-    - assets/images/agents.jpg
-    - assets/images/header_bg.jpg
 
 flutter_launcher_icons:
   android: true

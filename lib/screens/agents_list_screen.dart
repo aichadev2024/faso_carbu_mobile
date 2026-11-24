@@ -1,162 +1,108 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'creer_agent_screen.dart';
 
+import '../core/api.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/app_widgets.dart';
+import '../core/widgets/mobile_widgets.dart';
+
+/// Admin de station : liste et suppression des agents (pompistes).
 class AgentsListScreen extends StatefulWidget {
+  const AgentsListScreen({super.key, required this.token, required this.adminStationId});
   final String token;
-  final String adminStationId; // ✅ correction
-
-  const AgentsListScreen({
-    super.key,
-    required this.token,
-    required this.adminStationId,
-  });
+  final String adminStationId;
 
   @override
   State<AgentsListScreen> createState() => _AgentsListScreenState();
 }
 
 class _AgentsListScreenState extends State<AgentsListScreen> {
-  List agents = [];
-  bool isLoading = false;
+  List<Map<String, dynamic>> _agents = [];
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    fetchAgents();
+    _load();
   }
 
-  Future<void> fetchAgents() async {
-    setState(() => isLoading = true);
-
-    final response = await http.get(
-      Uri.parse(
-        "https://faso-carbu-backend-2.onrender.com/api/admin-stations/${widget.adminStationId}/agents",
-      ),
-      headers: {"Authorization": "Bearer ${widget.token}"},
-    );
-
-    if (response.statusCode == 200) {
-      setState(() {
-        agents = jsonDecode(response.body);
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("❌ Erreur chargement agents : ${response.body}"),
-        ),
-      );
-    }
-
-    setState(() => isLoading = false);
-  }
-
-  Future<void> supprimerAgent(String agentId) async {
-    final response = await http.delete(
-      Uri.parse(
-        "https://faso-carbu-backend-2.onrender.com/api/admin-stations/agents/$agentId", // ✅ correction endpoint
-      ),
-      headers: {"Authorization": "Bearer ${widget.token}"},
-    );
-
-    if (response.statusCode == 200 || response.statusCode == 204) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("✅ Agent supprimé")));
-      fetchAgents();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ Erreur suppression : ${response.body}")),
-      );
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      _agents = Api.asList(await Api.get('/admin-stations/${widget.adminStationId}/agents'));
+    } on ApiException catch (e) {
+      _error = e.message;
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  void goToCreateAgent() async {
-    final result = await Navigator.push(
+  Future<void> _delete(Map<String, dynamic> a) async {
+    final ok = await confirmDialog(
       context,
-      MaterialPageRoute(
-        builder: (_) => CreerAgentScreen(
-          token: widget.token,
-          adminStationId: widget.adminStationId, // ✅ correction
-        ),
-      ),
+      title: 'Supprimer ${a['prenom'] ?? ''} ${a['nom'] ?? ''} ?',
+      message: 'Cet agent ne pourra plus valider de tickets.',
+      confirmLabel: 'Supprimer',
+      destructive: true,
     );
-
-    if (result == true) {
-      fetchAgents();
+    if (!ok) return;
+    try {
+      await Api.delete('/admin-stations/agents/${a['id']}');
+      if (!mounted) return;
+      showAppSnack(context, 'Agent supprimé.', tone: Tone.success);
+      _load();
+    } on ApiException catch (e) {
+      if (mounted) showAppSnack(context, e.message, tone: Tone.danger);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        title: const Text("Liste des Agents"),
-        backgroundColor: Colors.red.shade700,
-        centerTitle: true,
-        elevation: 2,
-      ),
+      appBar: AppBar(title: const Text('Agents de station')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: goToCreateAgent,
-        backgroundColor: Colors.red.shade700,
-        icon: const Icon(Icons.add),
-        label: const Text("Ajouter"),
+        onPressed: () => Navigator.pushNamed(context, '/creer-agent_station').then((_) => _load()),
+        icon: const Icon(Icons.person_add_alt_rounded),
+        label: const Text('Nouvel agent'),
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : agents.isEmpty
-          ? const Center(
-              child: Text(
-                "Aucun agent trouvé",
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: agents.length,
-              itemBuilder: (context, index) {
-                final agent = agents[index];
-                final nom = agent['nom'] ?? '';
-                final prenom = agent['prenom'] ?? '';
-                final email = agent['email'] ?? '';
-
-                return Card(
-                  elevation: 3,
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.red.shade700,
-                      child: Text(
-                        prenom.isNotEmpty ? prenom[0].toUpperCase() : "?",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+      body: _loading && _agents.isEmpty
+          ? const LoadingView()
+          : RefreshableList(
+              onRefresh: _load,
+              children: [
+                if (_error != null)
+                  ErrorState(message: _error!, onRetry: _load)
+                else if (_agents.isEmpty)
+                  const EmptyState(
+                    icon: Icons.group_outlined,
+                    title: 'Aucun agent',
+                    message: 'Ajoutez les pompistes qui scanneront les tickets dans votre station.',
+                  )
+                else
+                  Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(children: [
+                      for (var i = 0; i < _agents.length; i++) ...[
+                        if (i > 0) const Divider(indent: 72),
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 4),
+                          leading: InitialsAvatar(name: '${_agents[i]['prenom'] ?? ''} ${_agents[i]['nom'] ?? ''}', size: 40),
+                          title: Text('${_agents[i]['prenom'] ?? ''} ${_agents[i]['nom'] ?? ''}', style: t.titleSmall),
+                          subtitle: Text('${_agents[i]['telephone'] ?? _agents[i]['email'] ?? ''}'),
+                          trailing: IconButton(
+                            tooltip: 'Supprimer',
+                            icon: Icon(Icons.delete_outline_rounded, color: Tone.danger.fg),
+                            onPressed: () => _delete(_agents[i]),
+                          ),
                         ),
-                      ),
-                    ),
-                    title: Text(
-                      "$prenom $nom",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    subtitle: Text(
-                      email,
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                    trailing: IconButton(
-                      icon: Icon(Icons.delete, color: Colors.red.shade700),
-                      onPressed: () => supprimerAgent(agent['id'].toString()),
-                    ),
+                      ],
+                    ]),
                   ),
-                );
-              },
+              ],
             ),
     );
   }

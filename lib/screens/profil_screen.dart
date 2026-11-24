@@ -1,261 +1,137 @@
-import 'dart:io';
-import 'dart:ui';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import '../core/api.dart';
+import '../core/config/app_config.dart';
+import '../core/session.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/app_widgets.dart';
+import '../core/widgets/mobile_widgets.dart';
 import 'change_password_screen.dart';
 
-const Color primaryRed = Color(0xFFD32F2F);
-
 class ProfilScreen extends StatefulWidget {
-  final String userEmail;
-  final String userRole;
-  final String token;
-  final String nom;
-  final String prenom;
-  final String userId;
-  final VoidCallback onLogout;
-
-  const ProfilScreen({
-    super.key,
-    required this.userEmail,
-    required this.userRole,
-    required this.token,
-    required this.nom,
-    required this.prenom,
-    required this.userId,
-    required this.onLogout,
-  });
+  const ProfilScreen({super.key});
 
   @override
   State<ProfilScreen> createState() => _ProfilScreenState();
 }
 
 class _ProfilScreenState extends State<ProfilScreen> {
-  File? _profileImage;
-  final ImagePicker _picker = ImagePicker();
+  Map<String, dynamic> _user = {};
+  bool _uploading = false;
 
   @override
   void initState() {
     super.initState();
-    _loadLocalPhoto();
+    _load();
   }
 
-  Future<void> _loadLocalPhoto() async {
-    final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString('profile_image_path');
-    if (path != null && File(path).existsSync()) {
-      setState(() => _profileImage = File(path));
+  Future<void> _load() async {
+    if (Session.userId.isEmpty) return;
+    try {
+      final data = await Api.get('/utilisateurs/${Session.userId}');
+      if (data is Map && mounted) setState(() => _user = Map<String, dynamic>.from(data));
+    } on ApiException catch (_) {
+      // Le profil s'affiche quand même avec les infos de session.
     }
   }
 
-  Future<void> _pickImage(ImageSource source) async {
-    final pickedFile = await _picker.pickImage(source: source);
-    if (pickedFile == null) return;
-
-    setState(() => _profileImage = File(pickedFile.path));
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('profile_image_path', pickedFile.path);
+  String? get _photoUrl {
+    final p = _user['photoProfil']?.toString();
+    if (p == null || p.isEmpty) return null;
+    return p.startsWith('http') ? p : '${AppConfig.backendUrl}$p';
   }
 
-  void _showPhotoOptions() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF1A1D24)
-              : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text("Caméra"),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo),
-              title: const Text("Galerie"),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.gallery);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatRole(String role) {
-    switch (role) {
-      case 'ROLE_ADMIN_STATION':
-        return 'Admin Station';
-      case 'ROLE_AGENT_STATION':
-        return 'Agent Station';
-      case 'ROLE_CHAUFFEUR':
-        return 'Chauffeur';
-      default:
-        return role;
+  Future<void> _changePhoto() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 800, imageQuality: 85);
+    if (picked == null) return;
+    setState(() => _uploading = true);
+    try {
+      final req = http.MultipartRequest('POST', Uri.parse('${AppConfig.apiUrl}/utilisateurs/${Session.userId}/upload-photo'))
+        ..headers['Authorization'] = 'Bearer ${Session.token}'
+        ..files.add(http.MultipartFile.fromBytes('file', await picked.readAsBytes(), filename: picked.name));
+      final res = await req.send();
+      if (res.statusCode != 200) throw Exception();
+      final data = jsonDecode(await res.stream.bytesToString());
+      if (!mounted) return;
+      setState(() => _user = {..._user, 'photoProfil': '${data['photoProfil']}?t=${DateTime.now().millisecondsSinceEpoch}'});
+      showAppSnack(context, 'Photo mise à jour.', tone: Tone.success);
+    } catch (_) {
+      if (mounted) showAppSnack(context, 'Envoi de la photo impossible.', tone: Tone.danger);
+    } finally {
+      if (mounted) setState(() => _uploading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF0F1115) : Colors.grey.shade100;
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subTextColor = isDark ? Colors.white70 : Colors.black54;
-
+    final t = Theme.of(context).textTheme;
+    final entreprise = _user['entreprise'] is Map ? (_user['entreprise'] as Map)['nom']?.toString() : null;
     return Scaffold(
-      backgroundColor: bgColor,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // HEADER FLOU AVEC AVATAR FLOTTANT
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  height: 180,
-                  decoration: const BoxDecoration(
-                    image: DecorationImage(
-                      image: AssetImage('assets/images/profile_header.jpg'),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-                    child: Container(
-                      color: Colors.black.withValues(alpha: 0.3),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 20,
-                  bottom: -35,
-                  child: GestureDetector(
-                    onTap: _showPhotoOptions,
-                    child: CircleAvatar(
-                      radius: 35,
-                      backgroundColor: Colors.white,
-                      child: ClipOval(
-                        child: _profileImage != null
-                            ? Image.file(
-                                _profileImage!,
-                                width: 70,
-                                height: 70,
-                                fit: BoxFit.cover,
-                              )
-                            : Image.asset(
-                                'assets/images/default_avatar.png',
-                                width: 70,
-                                height: 70,
-                                fit: BoxFit.cover,
-                              ),
-                      ),
+      appBar: AppBar(title: const Text('Profil')),
+      body: RefreshableList(
+        onRefresh: _load,
+        children: [
+          Center(
+            child: Stack(children: [
+              InitialsAvatar(name: Session.fullName, size: 96, imageUrl: _photoUrl),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Material(
+                  color: Theme.of(context).colorScheme.primary,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _uploading ? null : _changePhoto,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: _uploading
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.photo_camera_outlined, size: 16, color: Colors.white),
                     ),
                   ),
                 ),
-                Positioned(
-                  left: 100,
-                  bottom: 0,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "${widget.nom} ${widget.prenom}",
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        _formatRole(widget.userRole),
-                        style: TextStyle(color: subTextColor, fontSize: 14),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 50),
-
-            // INFORMATIONS
-            _profileCard(icon: Icons.email, title: widget.userEmail),
-            _profileCard(
-              icon: Icons.lock,
-              title: "Changer le mot de passe",
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChangePasswordScreen(token: widget.token),
-                  ),
-                );
-              },
-            ),
-
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryRed,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                icon: const Icon(Icons.logout, color: Colors.white),
-                label: const Text(
-                  "Se déconnecter",
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-                onPressed: widget.onLogout,
               ),
+            ]),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Center(child: Text(Session.fullName, style: t.headlineSmall)),
+          const SizedBox(height: AppSpacing.xs),
+          Center(child: StatusBadge(label: Session.roleLabel, tone: Tone.brand)),
+          const SizedBox(height: AppSpacing.xl),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+              child: Column(children: [
+                KeyValueRow(icon: Icons.mail_outline_rounded, label: 'Email', value: Session.email),
+                KeyValueRow(icon: Icons.phone_outlined, label: 'Téléphone', value: '${_user['telephone'] ?? ''}'),
+                KeyValueRow(icon: Icons.business_outlined, label: 'Entreprise', value: entreprise ?? ''),
+              ]),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _profileCard({
-    required IconData icon,
-    required String title,
-    VoidCallback? onTap,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF1A1D24) : Colors.white;
-    final textColor = isDark ? Colors.white : Colors.black87;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: primaryRed),
-        title: Text(title, style: TextStyle(color: textColor)),
-        trailing: onTap != null
-            ? Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: textColor.withValues(alpha: 0.6),
-              )
-            : null,
-        onTap: onTap,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(children: [
+              ListTile(
+                leading: const Icon(Icons.lock_reset_rounded),
+                title: const Text('Changer le mot de passe'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangePasswordScreen())),
+              ),
+              const Divider(indent: 56),
+              ListTile(
+                leading: Icon(Icons.logout_rounded, color: Tone.danger.fg),
+                title: Text('Se déconnecter', style: TextStyle(color: Tone.danger.fg)),
+                onTap: () => logout(context),
+              ),
+            ]),
+          ),
+        ],
       ),
     );
   }

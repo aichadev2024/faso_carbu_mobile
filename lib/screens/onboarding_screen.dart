@@ -1,6 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:faso_carbu_mobile/screens/login_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/session.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/app_widgets.dart';
+
+class _Page {
+  const _Page(this.icon, this.tone, this.title, this.text);
+  final IconData icon;
+  final Tone tone;
+  final String title;
+  final String text;
+}
+
+const _pages = [
+  _Page(Icons.confirmation_number_rounded, Tone.brand, 'Vos tickets carburant',
+      'Chauffeurs : retrouvez vos tickets validés et présentez leur QR code en station.'),
+  _Page(Icons.qr_code_scanner_rounded, Tone.success, 'Validation en un scan',
+      'Agents de station : scannez le QR code, vérifiez et validez le plein en quelques secondes.'),
+  _Page(Icons.local_gas_station_rounded, Tone.info, 'Votre station sous contrôle',
+      'Admins de station : gérez vos agents et le prix de vos carburants.'),
+];
+
+/// Présentation affichée au premier lancement uniquement.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -9,27 +31,8 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  final PageController _controller = PageController(viewportFraction: 0.85);
-  int _currentPage = 0;
-
-  final List<Map<String, String>> onboardingData = [
-    {
-      "title": "Chauffeurs",
-      "description":
-          "Trouvez rapidement des stations et gérez vos tickets carburant.",
-      "image": "assets/images/station_fuel.jpg",
-    },
-    {
-      "title": "Suivi intelligent",
-      "description": "Un suivi clair pour chauffeurs, agents et stations.",
-      "image": "assets/images/driver.jpg",
-    },
-    {
-      "title": "Validation sécurisée",
-      "description": "Scannez et validez vos tickets en toute sécurité.",
-      "image": "assets/images/agent.jpg",
-    },
-  ];
+  final _controller = PageController();
+  int _index = 0;
 
   @override
   void dispose() {
@@ -37,190 +40,76 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
+  Future<void> _finish() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_seen', true);
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, Session.isLoggedIn ? '/home' : '/login');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final theme = Theme.of(context);
-
+    final t = Theme.of(context).textTheme;
+    final last = _index == _pages.length - 1;
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
           child: Column(
             children: [
-              const SizedBox(height: 30),
-
-              // 🔥 TEXTE ACCROCHE
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    Text(
-                      "Bienvenue dans Faso Carbu",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: theme.textTheme.bodyLarge!.color,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      "Connectez-vous avec vos identifiants et profitez d'une gestion simple et sécurisée du carburant.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: theme.textTheme.bodyMedium!.color?.withValues(
-                          alpha: 0.7,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(onPressed: _finish, child: const Text('Passer')),
               ),
-
-              const SizedBox(height: 20),
-
-              // 🔥 CAROUSEL
-              SizedBox(
-                height: screenHeight * 0.5,
+              Expanded(
                 child: PageView.builder(
                   controller: _controller,
-                  itemCount: onboardingData.length,
-                  onPageChanged: (index) =>
-                      setState(() => _currentPage = index),
-                  itemBuilder: (context, index) {
-                    final isActive = index == _currentPage;
-                    return AnimatedScale(
-                      scale: isActive ? 1 : 0.95,
-                      duration: const Duration(milliseconds: 300),
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 10),
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: theme.cardColor,
-                          borderRadius: BorderRadius.circular(24),
+                  itemCount: _pages.length,
+                  onPageChanged: (i) => setState(() => _index = i),
+                  itemBuilder: (_, i) {
+                    final p = _pages[i];
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(color: p.tone.softBg(context), shape: BoxShape.circle),
+                          child: Icon(p.icon, size: 52, color: p.tone.fg),
                         ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            // 🔹 IMAGE
-                            AnimatedOpacity(
-                              opacity: 1,
-                              duration: const Duration(milliseconds: 800),
-                              child: Image.asset(
-                                onboardingData[index]["image"]!,
-                                height: screenHeight * 0.25,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            // 🔹 TITRE
-                            Text(
-                              onboardingData[index]["title"]!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: theme.textTheme.bodyLarge!.color,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            // 🔹 DESCRIPTION
-                            Text(
-                              onboardingData[index]["description"]!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: theme.textTheme.bodyMedium!.color
-                                    ?.withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                        const SizedBox(height: 40),
+                        Text(p.title, style: t.headlineMedium, textAlign: TextAlign.center),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(p.text, style: t.bodyLarge?.copyWith(color: t.bodyMedium?.color), textAlign: TextAlign.center),
+                      ],
                     );
                   },
                 ),
               ),
-
-              const SizedBox(height: 20),
-
-              // 🔴 INDICATEURS
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  onboardingData.length,
-                  (index) => AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    height: 8,
-                    width: _currentPage == index ? 24 : 8,
-                    decoration: BoxDecoration(
-                      color: _currentPage == index
-                          ? Colors.red
-                          : Colors.red.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // 🔴 BOUTON COMMENCER
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                children: [
+                  for (var i = 0; i < _pages.length; i++)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: i == _index ? 22 : 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: i == _index ? Theme.of(context).colorScheme.primary : Theme.of(context).dividerColor,
+                        borderRadius: BorderRadius.circular(99),
                       ),
                     ),
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      );
-                    },
-                    child: const Text(
-                      "Commencer",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
+                ],
               ),
-
-              const SizedBox(height: 10),
-
-              // ⚪ ME CONNECTER
-              TextButton(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  );
-                },
-                child: Text(
-                  "Me connecter",
-                  style: TextStyle(
-                    color: theme.textTheme.bodyMedium!.color?.withValues(
-                      alpha: 0.7,
-                    ),
-                    fontSize: 16,
-                  ),
-                ),
+              const SizedBox(height: AppSpacing.xl),
+              PrimaryButton(
+                label: last ? 'Commencer' : 'Suivant',
+                expand: true,
+                onPressed: last
+                    ? _finish
+                    : () => _controller.nextPage(duration: const Duration(milliseconds: 280), curve: Curves.easeOut),
               ),
-
-              const SizedBox(height: 20),
             ],
           ),
         ),

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:faso_carbu_mobile/db/database_helper.dart';
-import 'package:faso_carbu_mobile/models/notification_model.dart';
 
+import '../core/notification_store.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/app_widgets.dart';
+import '../core/widgets/mobile_widgets.dart';
+import '../models/notification_model.dart';
+
+/// Historique des notifications push reçues sur cet appareil.
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
 
@@ -10,111 +15,100 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  List<NotificationModel> notifications = [];
+  List<NotificationModel> _items = [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _chargerNotifications();
+    NotificationStore.unread.addListener(_load);
+    _load();
   }
 
-  Future<void> _chargerNotifications() async {
-    final data = await DatabaseHelper.instance.getAllNotifications();
-    setState(() {
-      notifications = data.reversed.toList();
-    });
+  @override
+  void dispose() {
+    NotificationStore.unread.removeListener(_load);
+    super.dispose();
   }
 
-  Future<void> _marquerCommeLu(int id) async {
-    await DatabaseHelper.instance.marquerNotificationCommeLue(id);
-    _chargerNotifications();
+  Future<void> _load() async {
+    try {
+      final items = await NotificationStore.all();
+      if (mounted) setState(() => _items = items);
+    } catch (_) {
+      if (mounted) setState(() => _items = []);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _ago(String iso) {
+    final d = DateTime.tryParse(iso);
+    if (d == null) return '';
+    final diff = DateTime.now().difference(d);
+    if (diff.inMinutes < 1) return 'À l\'instant';
+    if (diff.inHours < 1) return 'Il y a ${diff.inMinutes} min';
+    if (diff.inDays < 1) return 'Il y a ${diff.inHours} h';
+    return formatDate(d, withTime: true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final hasUnread = _items.any((n) => !n.lu);
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const Text(
-          'Mes Notifications 🔔',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.red.shade700,
-        elevation: 2,
+        title: const Text('Notifications'),
+        actions: [
+          if (hasUnread)
+            TextButton(onPressed: () => NotificationStore.markAllRead(), child: const Text('Tout marquer lu')),
+        ],
       ),
-      body: notifications.isEmpty
-          ? const Center(
-              child: Text(
-                "Aucune notification pour l’instant 😊",
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: notifications.length,
-              itemBuilder: (context, index) {
-                final notif = notifications[index];
-                return Card(
-                  elevation: 4,
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      radius: 26,
-                      backgroundColor: notif.lu == 1
-                          ? Colors.grey.shade300
-                          : Colors.red.shade700,
-                      child: Icon(
-                        notif.lu == 1
-                            ? Icons.notifications_none
-                            : Icons.notifications_active,
-                        color: Colors.white,
-                      ),
-                    ),
-                    title: Text(
-                      notif.titre,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
-                        Text(
-                          notif.message,
-                          style: const TextStyle(color: Colors.black87),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '📅 ${notif.date}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            if (notif.lu == 0)
-                              TextButton(
-                                onPressed: () => _marquerCommeLu(notif.id!),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: Colors.red.shade700,
-                                ),
-                                child: const Text("Marquer comme lu"),
-                              ),
-                          ],
+      body: _loading
+          ? const LoadingView()
+          : RefreshableList(
+              onRefresh: _load,
+              children: [
+                if (_items.isEmpty)
+                  const EmptyState(
+                    icon: Icons.notifications_none_rounded,
+                    title: 'Aucune notification',
+                    message: 'Vous serez prévenu ici quand un ticket vous est attribué ou validé.',
+                  )
+                else
+                  Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(children: [
+                      for (var i = 0; i < _items.length; i++) ...[
+                        if (i > 0) const Divider(indent: 60),
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 6),
+                          leading: CircleAvatar(
+                            backgroundColor: (_items[i].lu ? Tone.neutral : Tone.brand).softBg(context),
+                            child: Icon(Icons.notifications_rounded,
+                                size: 20, color: (_items[i].lu ? Tone.neutral : Tone.brand).fg),
+                          ),
+                          title: Text(
+                            _items[i].titre,
+                            style: t.titleSmall?.copyWith(fontWeight: _items[i].lu ? FontWeight.w500 : FontWeight.w700),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 2),
+                              Text(_items[i].message, style: t.bodyMedium),
+                              const SizedBox(height: 4),
+                              Text(_ago(_items[i].date), style: t.bodySmall),
+                            ],
+                          ),
+                          onTap: _items[i].lu || _items[i].id == null
+                              ? null
+                              : () => NotificationStore.markRead(_items[i].id!),
                         ),
                       ],
-                    ),
+                    ]),
                   ),
-                );
-              },
+              ],
             ),
     );
   }

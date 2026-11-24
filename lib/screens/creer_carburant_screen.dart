@@ -1,16 +1,13 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
+import '../core/api.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/app_widgets.dart';
 
 class CreerCarburantScreen extends StatefulWidget {
+  const CreerCarburantScreen({super.key, required this.token, required this.adminStationId});
   final String token;
   final String adminStationId;
-
-  const CreerCarburantScreen({
-    super.key,
-    required this.token,
-    required this.adminStationId,
-  });
 
   @override
   State<CreerCarburantScreen> createState() => _CreerCarburantScreenState();
@@ -18,117 +15,76 @@ class CreerCarburantScreen extends StatefulWidget {
 
 class _CreerCarburantScreenState extends State<CreerCarburantScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController nomController = TextEditingController();
-  final TextEditingController prixController = TextEditingController();
+  final _nom = TextEditingController();
+  final _prix = TextEditingController();
+  bool _loading = false;
+  String? _error;
 
-  bool isLoading = false;
+  static const _suggestions = ['Super 91', 'Gasoil', 'Pétrole'];
 
-  Future<void> creerCarburant() async {
+  @override
+  void dispose() {
+    _nom.dispose();
+    _prix.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() => isLoading = true);
-
-    final response = await http.post(
-      Uri.parse(
-        "https://faso-carbu-backend-2.onrender.com/api/admin-stations/carburants",
-      ),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${widget.token}",
-      },
-      body: jsonEncode({
-        "nom": nomController.text,
-        "prix": double.tryParse(prixController.text) ?? 0,
-      }),
-    );
-
-    setState(() => isLoading = false);
-
-    if (response.statusCode == 201 || response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ Carburant ajouté avec succès")),
-      );
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await Api.post('/admin-stations/carburants', {
+        'nom': _nom.text.trim(),
+        'prix': double.parse(_prix.text.replaceAll(',', '.')),
+      });
+      if (!mounted) return;
+      showAppSnack(context, 'Carburant ajouté.', tone: Tone.success);
       Navigator.pop(context, true);
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("❌ Erreur : ${response.body}")));
+    } on ApiException catch (e) {
+      setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text("➕ Ajouter Carburant"),
-        backgroundColor: Colors.red.shade700,
-        elevation: 4,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: nomController,
-                decoration: InputDecoration(
-                  labelText: "Nom du carburant",
-                  prefixIcon: const Icon(Icons.local_gas_station),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
+      appBar: AppBar(title: const Text('Nouveau carburant')),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_error != null) ...[InlineAlert(message: _error!), const SizedBox(height: AppSpacing.lg)],
+                AppTextField(label: 'Nom', controller: _nom, required: true, icon: Icons.local_gas_station_outlined),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(spacing: AppSpacing.sm, children: [
+                  for (final s in _suggestions)
+                    ActionChip(label: Text(s), onPressed: () => setState(() => _nom.text = s)),
+                ]),
+                const SizedBox(height: AppSpacing.lg),
+                AppTextField(
+                  label: 'Prix au litre (FCFA)',
+                  controller: _prix,
+                  icon: Icons.payments_outlined,
+                  hint: 'Ex. 850',
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (v) {
+                    final p = double.tryParse((v ?? '').replaceAll(',', '.'));
+                    return (p == null || p <= 0) ? 'Prix invalide' : null;
+                  },
                 ),
-                validator: (v) => v!.isEmpty ? "Champ requis" : null,
-              ),
-              const SizedBox(height: 20),
-              TextFormField(
-                controller: prixController,
-                decoration: InputDecoration(
-                  labelText: "Prix (FCFA)",
-                  prefixIcon: const Icon(Icons.monetization_on),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-                keyboardType: TextInputType.number,
-                validator: (v) => v!.isEmpty ? "Champ requis" : null,
-              ),
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: isLoading ? null : creerCarburant,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade700,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Icon(Icons.save),
-                  label: Text(
-                    isLoading ? "En cours..." : "Créer",
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
-            ],
+                const SizedBox(height: AppSpacing.xl),
+                PrimaryButton(label: 'Ajouter le carburant', onPressed: _submit, loading: _loading, expand: true),
+              ],
+            ),
           ),
         ),
       ),

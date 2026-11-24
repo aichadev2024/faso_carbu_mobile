@@ -1,240 +1,105 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
-const String baseUrl = 'https://faso-carbu-backend-2.onrender.com/api';
+import '../core/api.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/app_widgets.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
-  final String email;
   const ResetPasswordScreen({super.key, required this.email});
+  final String email;
 
   @override
   State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
 }
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
-  final _codeController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-
+  final _formKey = GlobalKey<FormState>();
+  final _code = TextEditingController();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+  bool _show = false;
   bool _loading = false;
-  String? _message;
+  String? _error;
 
-  Future<void> _resetPassword() async {
-    final code = _codeController.text.trim();
-    final password = _passwordController.text.trim();
-    final confirmPassword = _confirmPasswordController.text.trim();
+  @override
+  void dispose() {
+    _code.dispose();
+    _password.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
 
-    if (code.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
-      setState(() => _message = "⚠️ Veuillez remplir tous les champs");
-      return;
-    }
-
-    if (password != confirmPassword) {
-      setState(() => _message = "⚠️ Les mots de passe ne correspondent pas");
-      return;
-    }
-
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
     setState(() {
       _loading = true;
-      _message = null;
+      _error = null;
     });
-
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/reset-password'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': widget.email,
-          'code': code,
-          'nouveauMotDePasse': password,
-        }),
+      await Api.post(
+        '/auth/reset-password',
+        {'email': widget.email, 'code': _code.text.trim(), 'nouveauMotDePasse': _password.text},
+        false,
       );
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        setState(() {
-          _message = "✅ Mot de passe réinitialisé avec succès";
-        });
-
-        Future.delayed(const Duration(seconds: 2), () {
-          Navigator.pushReplacementNamed(context, '/login');
-        });
-      } else {
-        final body = jsonDecode(response.body);
-        setState(() {
-          _message = body['message'] ?? "Erreur lors de la réinitialisation";
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _message = "⚠️ Erreur serveur ou connexion internet";
-      });
+      if (!mounted) return;
+      showAppSnack(context, 'Mot de passe réinitialisé. Connectez-vous.', tone: Tone.success);
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+    } on ApiException catch (e) {
+      setState(() => _error = e.statusCode == 400 ? 'Code invalide ou expiré.' : e.message);
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          "Réinitialiser le mot de passe",
-          style: TextStyle(color: Colors.white),
-        ),
-        centerTitle: true,
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF1E1E1E), Color(0xFF3A3A3A), Color(0xFF2C2C2C)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+      appBar: AppBar(),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Form(
+            key: _formKey,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.lock, color: Colors.redAccent, size: 80),
-                const SizedBox(height: 20),
-
-                const Text(
-                  "Réinitialisez votre mot de passe",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Text('Nouveau mot de passe', style: t.headlineMedium),
+                const SizedBox(height: AppSpacing.xs),
+                Text('Saisissez le code reçu à ${widget.email}.', style: t.bodyMedium),
+                const SizedBox(height: AppSpacing.xxl),
+                if (_error != null) ...[InlineAlert(message: _error!), const SizedBox(height: AppSpacing.lg)],
+                AppTextField(
+                  label: 'Code de vérification',
+                  controller: _code,
+                  required: true,
+                  icon: Icons.pin_outlined,
+                  keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 10),
-
-                const Text(
-                  "Entrez le code reçu par email et choisissez un nouveau mot de passe.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-                const SizedBox(height: 30),
-
-                // 🔑 Code OTP
-                TextField(
-                  controller: _codeController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.key, color: Colors.redAccent),
-                    hintText: "Code de vérification",
-                    hintStyle: const TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white10,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
+                const SizedBox(height: AppSpacing.lg),
+                AppTextField(
+                  label: 'Nouveau mot de passe',
+                  controller: _password,
+                  required: true,
+                  icon: Icons.lock_outline_rounded,
+                  obscureText: !_show,
+                  suffix: IconButton(
+                    icon: Icon(_show ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20),
+                    onPressed: () => setState(() => _show = !_show),
                   ),
+                  validator: (v) => (v == null || v.length < 8) ? '8 caractères minimum' : null,
                 ),
-                const SizedBox(height: 16),
-
-                // 🔒 Nouveau mot de passe
-                TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.lock, color: Colors.redAccent),
-                    hintText: "Nouveau mot de passe",
-                    hintStyle: const TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white10,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
+                const SizedBox(height: AppSpacing.lg),
+                AppTextField(
+                  label: 'Confirmation',
+                  controller: _confirm,
+                  required: true,
+                  icon: Icons.lock_outline_rounded,
+                  obscureText: !_show,
+                  validator: (v) => v != _password.text ? 'Les mots de passe ne correspondent pas' : null,
                 ),
-                const SizedBox(height: 16),
-
-                // 🔒 Confirmation
-                TextField(
-                  controller: _confirmPasswordController,
-                  obscureText: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(
-                      Icons.lock_outline,
-                      color: Colors.redAccent,
-                    ),
-                    hintText: "Confirmer le mot de passe",
-                    hintStyle: const TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white10,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                if (_message != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Text(
-                      _message!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: _message!.startsWith("✅")
-                            ? Colors.greenAccent
-                            : Colors.redAccent,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-
-                // 🔘 Bouton Réinitialiser
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _loading ? null : _resetPassword,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: _loading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                            "Réinitialiser",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 30),
-
-                // 🔙 Lien retour
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    "Retour",
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
+                const SizedBox(height: AppSpacing.xl),
+                PrimaryButton(label: 'Réinitialiser', onPressed: _submit, loading: _loading, expand: true),
               ],
             ),
           ),

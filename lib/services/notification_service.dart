@@ -1,61 +1,35 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 
-var logger = Logger();
+import '../core/api.dart';
+import '../core/session.dart';
 
+final _log = Logger();
+
+/// Enregistre le token de notifications push de l'appareil auprès du backend.
 class NotificationService {
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  NotificationService._();
 
-  /// Récupère le token FCM depuis Firebase
-  Future<String?> getFcmToken() async {
+  static Future<String?> fcmToken() async {
+    if (kIsWeb) return null;
     try {
-      String? token = await _firebaseMessaging.getToken();
-      logger.i("🎯 FCM Token récupéré: $token");
-      return token;
+      return await FirebaseMessaging.instance.getToken();
     } catch (e) {
-      logger.e("⚠️ Erreur récupération FCM Token: $e");
+      _log.w('Token FCM indisponible : $e');
       return null;
     }
   }
 
-  /// Envoie le token FCM vers ton backend
-  Future<void> updateFcmToken({
-    required String userId, // ⚠️ doit être un UUID string valide
-    required String jwtToken,
-  }) async {
+  /// À appeler après la connexion. N'échoue jamais : les notifications
+  /// sont un confort, pas une condition pour utiliser l'appli.
+  static Future<void> registerDevice() async {
+    final token = await fcmToken();
+    if (token == null || Session.userId.isEmpty) return;
     try {
-      final fcmToken = await getFcmToken();
-      if (fcmToken == null) {
-        logger.e("❌ Impossible de récupérer le token FCM");
-        return;
-      }
-
-      final response = await http.post(
-        Uri.parse(
-          "https://faso-carbu-backend-2.onrender.com/api/utilisateurs/update-token", // ✅ corrigé (utilisateurs avec 's')
-        ),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $jwtToken",
-        },
-        body: jsonEncode({
-          "userId":
-              userId, // ✅ UUID attendu (ex: "b2a1c4e3-12ab-4567-89cd-123456789abc")
-          "fcmToken": fcmToken,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        logger.i("✅ Token FCM mis à jour avec succès !");
-      } else {
-        logger.e(
-          "❌ Erreur update FCM: ${response.statusCode} - ${response.body}",
-        );
-      }
+      await Api.post('/utilisateurs/update-token', {'userId': Session.userId, 'fcmToken': token});
     } catch (e) {
-      logger.e("⚠️ Exception lors de l’update du FCM token: $e");
+      _log.w('Enregistrement du token FCM impossible : $e');
     }
   }
 }

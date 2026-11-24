@@ -1,23 +1,17 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'main_screen.dart';
+import '../core/api.dart';
+import '../core/session.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/app_widgets.dart';
+import '../core/widgets/mobile_widgets.dart';
+import '../services/notification_service.dart';
 import 'ForgotPasswordScreen.dart';
-import 'dart:ui';
 
-const String baseUrl = 'https://faso-carbu-backend-2.onrender.com/api';
+/// Rôles qui utilisent l'appli mobile. Les gestionnaires et demandeurs
+/// travaillent sur le tableau de bord web.
+const _mobileRoles = {'CHAUFFEUR', 'AGENT_STATION', 'ADMIN_STATION'};
 
-/// ================= COLORS (FASO CARBU) =================
-class AppColors {
-  static const Color red = Color(0xFFD32F2F);
-  static const Color redDark = Color(0xFF8B1E1E);
-  static const Color black = Color(0xFF1E1E1E);
-  static const Color grey = Color(0xFF9E9E9E);
-}
-
-/// ================= LOGIN =================
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -26,302 +20,134 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-
+  final _formKey = GlobalKey<FormState>();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
   bool _loading = false;
-  bool _obscurePassword = true;
+  bool _obscure = true;
   String? _error;
 
-  Future<void> _login(BuildContext context) async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
 
-    if (email.isEmpty || password.isEmpty) {
-      setState(() => _error = "Veuillez remplir tous les champs");
-      return;
-    }
-
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
     setState(() {
       _loading = true;
       _error = null;
     });
-
     try {
-      final response = await http.post(
-        Uri.parse("$baseUrl/auth/login"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"email": email, "motDePasse": password}),
-      );
+      final fcm = await NotificationService.fcmToken();
+      final data = await Api.post(
+        '/auth/login',
+        {'email': _email.text.trim(), 'motDePasse': _password.text, if (fcm != null) 'fcmToken': fcm},
+        false,
+      ) as Map<String, dynamic>;
 
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final data = jsonDecode(response.body);
-        final prefs = await SharedPreferences.getInstance();
-
-        await prefs.setString("auth_token", data['token'] ?? '');
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => MainScreen(
-              email: data['email'] ?? email,
-              role: data['role'] ?? '',
-              token: data['token'] ?? '',
-              nom: data['nom'] ?? '',
-              prenom: data['prenom'] ?? '',
-              userId: data['id'] ?? '',
-            ),
-          ),
-        );
-      } else {
-        setState(() => _error = "Identifiants incorrects");
+      final role = (data['role'] ?? '').toString().toUpperCase().replaceFirst('ROLE_', '');
+      if (!_mobileRoles.contains(role)) {
+        setState(() => _error = 'L\'appli mobile est réservée aux chauffeurs et au personnel de station. '
+            'Les gestionnaires utilisent le tableau de bord web.');
+        return;
       }
-    } catch (_) {
-      setState(() => _error = "Connexion impossible");
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
 
-  InputDecoration inputStyle(String hint, {Widget? suffix}) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(color: AppColors.grey),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(30),
-        borderSide: const BorderSide(color: AppColors.grey),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(30),
-        borderSide: const BorderSide(color: AppColors.red),
-      ),
-      suffixIcon: suffix,
-    );
+      await Session.save(
+        token: (data['token'] ?? '').toString(),
+        userId: (data['id'] ?? '').toString(),
+        email: (data['email'] ?? _email.text.trim()).toString(),
+        nom: (data['nom'] ?? '').toString(),
+        prenom: (data['prenom'] ?? '').toString(),
+        role: (data['role'] ?? '').toString(),
+      );
+      NotificationService.registerDevice();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
+    } on ApiException catch (e) {
+      setState(() => _error = (e.statusCode == 401 || e.statusCode == 403)
+          ? 'Email ou mot de passe incorrect.'
+          : e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-
+    final t = Theme.of(context).textTheme;
     return Scaffold(
-      body: Stack(
-        children: [
-          /// 🔹 IMAGE FULL SCREEN
-          SizedBox(
-            height: size.height,
-            width: size.width,
-            child: Image.asset('assets/images/login_bg.jpg', fit: BoxFit.cover),
-          ),
-
-          /// 🔹 FLOU
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: Container(color: Colors.transparent),
-          ),
-
-          /// 🔹 OVERLAY SOMBRE
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.65),
-                  Colors.black.withValues(alpha: 0.55),
-                  Colors.black.withValues(alpha: 0.75),
-                ],
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Form(
+                key: _formKey,
+                child: AutofillGroup(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Align(alignment: Alignment.centerLeft, child: BrandMark(size: 40)),
+                      const SizedBox(height: 48),
+                      Text('Bon retour 👋', style: t.headlineMedium),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text('Connectez-vous pour accéder à vos tickets et à votre station.', style: t.bodyMedium),
+                      const SizedBox(height: AppSpacing.xxl),
+                      if (_error != null) ...[InlineAlert(message: _error!), const SizedBox(height: AppSpacing.lg)],
+                      AppTextField(
+                        label: 'Adresse email',
+                        controller: _email,
+                        hint: 'nom@entreprise.bf',
+                        icon: Icons.mail_outline_rounded,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        validator: (v) => (v == null || !v.contains('@')) ? 'Email invalide' : null,
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      AppTextField(
+                        label: 'Mot de passe',
+                        controller: _password,
+                        icon: Icons.lock_outline_rounded,
+                        obscureText: _obscure,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => _login(),
+                        validator: (v) => (v == null || v.isEmpty) ? 'Saisissez votre mot de passe' : null,
+                        suffix: IconButton(
+                          icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 20),
+                          onPressed: () => setState(() => _obscure = !_obscure),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                          ),
+                          child: const Text('Mot de passe oublié ?'),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      PrimaryButton(label: 'Se connecter', onPressed: _login, loading: _loading, expand: true),
+                      const SizedBox(height: AppSpacing.xl),
+                      Text(
+                        'Pas encore de compte ? Demandez-le à votre gestionnaire ou à l\'administrateur de votre station.',
+                        style: t.bodySmall,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-
-          /// 🔹 CONTENU
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Column(
-                children: [
-                  const SizedBox(height: 60),
-
-                  /// TITRE
-                  const Text(
-                    "Connexion",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  /// LOGO
-                  Image.asset('assets/images/logo.mobile.png', height: 80),
-
-                  const SizedBox(height: 80),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-
-                  Text(
-                    "Bienvenue sur FasoCarbu",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: MediaQuery.of(context).size.width * 0.055,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  Text(
-                    "Connectez-vous avec vos identifiants",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: MediaQuery.of(context).size.width * 0.038,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-
-                  /// EMAIL
-                  TextField(
-                    controller: _emailController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: inputStyle("Email").copyWith(
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.15),
-                      hintStyle: const TextStyle(color: Colors.white70),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.4),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: const BorderSide(color: AppColors.red),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  /// PASSWORD
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: inputStyle("Mot de passe").copyWith(
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.15),
-                      hintStyle: const TextStyle(color: Colors.white70),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.4),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: const BorderSide(color: AppColors.red),
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                          color: Colors.white70,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: AppColors.red),
-                      ),
-                    ),
-
-                  const SizedBox(height: 36),
-
-                  /// BOUTON
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: () => _login(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.red,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: _loading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                              "Se Connecter",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  /// FORGOT
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ForgotPasswordScreen(),
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      "Mot de passe oublié?",
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
-}
-
-/// ================= WAVE CLIPPER =================
-class WaveClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    path.moveTo(0, 60);
-    path.quadraticBezierTo(size.width * 0.25, 0, size.width * 0.55, 40);
-    path.quadraticBezierTo(size.width * 0.85, 80, size.width, 40);
-    path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }

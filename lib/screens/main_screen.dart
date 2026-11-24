@@ -1,101 +1,49 @@
 import 'package:flutter/material.dart';
+
+import '../core/notification_store.dart';
+import '../core/widgets/mobile_widgets.dart';
 import 'home_screen.dart';
-import 'profil_screen.dart';
 import 'notification_screen.dart';
-import 'package:logger/logger.dart';
+import 'profil_screen.dart';
 
-var logger = Logger();
-
+/// Coquille principale : barre de navigation Accueil / Notifications / Profil.
 class MainScreen extends StatefulWidget {
-  final String email;
-  final String role;
-  final String token;
-  final String nom;
-  final String prenom;
-  final String userId;
-
-  const MainScreen({
-    super.key,
-    required this.email,
-    required this.role,
-    required this.token,
-    required this.nom,
-    required this.prenom,
-    required this.userId,
-  });
+  const MainScreen({super.key});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0;
-  late final List<Widget> _screens;
+  int _index = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    logger.i("🔑 Token courant : ${widget.token}");
-
-    _screens = [
-      HomeScreen(
-        userEmail: widget.email,
-        userRole: widget.role,
-        token: widget.token,
-        nom: widget.nom,
-        prenom: widget.prenom,
-        userId: widget.userId,
-      ),
-      ProfilScreen(
-        userEmail: widget.email,
-        userRole: widget.role,
-        token: widget.token,
-        nom: widget.nom,
-        prenom: widget.prenom,
-        userId: widget.userId,
-        onLogout: _handleLogout,
-      ),
-      const NotificationScreen(),
-    ];
-  }
-
-  void _handleLogout() {
-    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-  }
-
-  void _onItemTapped(int index) {
-    setState(() => _selectedIndex = index);
-  }
+  static const _pages = [HomeScreen(), NotificationScreen(), ProfilScreen()];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        child: _screens[_selectedIndex],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        backgroundColor: Colors.black,
-        selectedItemColor: Colors.red.shade700,
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home, size: 24, color: Colors.grey),
-            activeIcon: Icon(Icons.home, size: 28, color: Colors.red),
-            label: "Accueil",
+      body: IndexedStack(index: _index, children: _pages),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) {
+          setState(() => _index = i);
+          if (i == 1) NotificationStore.refreshUnread();
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
+            label: 'Accueil',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person, size: 24, color: Colors.grey),
-            activeIcon: Icon(Icons.person, size: 28, color: Colors.red),
-            label: "Profil",
+          NavigationDestination(
+            icon: NotificationBadgeIcon(),
+            selectedIcon: NotificationBadgeIcon(selected: true),
+            label: 'Notifications',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications, size: 24, color: Colors.grey),
-            activeIcon: Icon(Icons.notifications, size: 28, color: Colors.red),
-            label: "Notifications",
+          NavigationDestination(
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.person_rounded),
+            label: 'Profil',
           ),
         ],
       ),
