@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <application
-        android:label="faso_carbu_mobile"
+        android:label="FasoCarbu"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         android:enableOnBackInvokedCallback="true"

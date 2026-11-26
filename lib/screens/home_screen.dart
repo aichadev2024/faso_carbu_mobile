@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api.dart';
 import '../core/session.dart';
+import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_widgets.dart';
 import '../core/widgets/mobile_widgets.dart';
@@ -73,32 +74,67 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final content = _roleContent(context);
+    final stats = content.isNotEmpty && content.first is _HeaderStats ? content.first as _HeaderStats : null;
+    final body = stats == null ? content : content.sublist(1);
     return Scaffold(
-      body: SafeArea(
-        child: RefreshableList(
-          onRefresh: _load,
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 96),
           children: [
-            Row(children: [
-              InitialsAvatar(name: Session.fullName, size: 44),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('$_greeting, ${Session.prenom.isEmpty ? '' : Session.prenom}', style: t.headlineSmall),
-                    const SizedBox(height: 2),
-                    Text(Session.roleLabel, style: t.bodyMedium),
-                  ],
-                ),
+            BrandHeader(
+              padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 16, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white.withValues(alpha: 0.3))),
+                      child: InitialsAvatar(name: Session.fullName, size: 44),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$_greeting${Session.prenom.isEmpty ? '' : ', ${Session.prenom}'}',
+                            style: t.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.brand.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(Session.roleLabel, style: t.labelMedium?.copyWith(color: const Color(0xFFFDBA74))),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const LogoMark(size: 34),
+                  ]),
+                  if (stats != null) ...[const SizedBox(height: AppSpacing.xl), stats],
+                ],
               ),
-              const BrandMark(size: 30, showName: false),
-            ]),
-            const SizedBox(height: AppSpacing.xl),
-            if (_error != null) ...[
-              InlineAlert(message: _error!),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-            ..._roleContent(context),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_error != null) ...[
+                    InlineAlert(message: _error!),
+                    const SizedBox(height: AppSpacing.lg),
+                  ],
+                  ...body,
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -114,7 +150,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ('À utiliser', _loading ? '…' : '${enAttente.length}', Icons.confirmation_number_rounded, Tone.brand),
             ('Utilisés', _loading ? '…' : '${_tickets.length - enAttente.length}', Icons.check_circle_rounded, Tone.success),
           ]),
-          const SizedBox(height: AppSpacing.xl),
           ActionCard(
             primary: true,
             icon: Icons.qr_code_2_rounded,
@@ -149,7 +184,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ('Validés aujourd\'hui', _loading ? '…' : '${today.length}', Icons.task_alt_rounded, Tone.success),
             ('Volume du jour', _loading ? '…' : '${formatNumber(litres)} L', Icons.water_drop_rounded, Tone.info),
           ]),
-          const SizedBox(height: AppSpacing.xl),
           ActionCard(
             primary: true,
             icon: Icons.qr_code_scanner_rounded,
@@ -183,7 +217,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ('Agents', _agents == null ? '…' : '$_agents', Icons.badge_rounded, Tone.info),
             ('Carburants', _carburants == null ? '…' : '$_carburants', Icons.local_gas_station_rounded, Tone.brand),
           ]),
-          const SizedBox(height: AppSpacing.xl),
           ActionCard(
             primary: true,
             icon: Icons.local_gas_station_rounded,
@@ -210,32 +243,67 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Widget _stats(List<(String, String, IconData, Tone)> items) {
+  Widget _stats(List<(String, String, IconData, Tone)> items) => _HeaderStats(items: items);
+
+  Widget _sectionTitle(BuildContext context, String text) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, AppSpacing.xl, 4, AppSpacing.md),
+        child: Text(text, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+      );
+}
+
+/// Indicateurs affichés dans l'en-tête sombre de l'accueil.
+class _HeaderStats extends StatelessWidget {
+  const _HeaderStats({required this.items});
+  final List<(String, String, IconData, Tone)> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
     return Row(children: [
       for (var i = 0; i < items.length; i++) ...[
         if (i > 0) const SizedBox(width: AppSpacing.md),
         Expanded(
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(items[i].$3, size: 20, color: items[i].$4.fg),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(items[i].$2, style: Theme.of(context).textTheme.headlineMedium),
-                  Text(items[i].$1, style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
             ),
+            child: Row(children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: items[i].$4.fg.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(items[i].$3, size: 19, color: Color.lerp(items[i].$4.fg, Colors.white, 0.35)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      items[i].$2,
+                      style: t.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      items[i].$1,
+                      style: t.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.65)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ]),
           ),
         ),
       ],
     ]);
   }
-
-  Widget _sectionTitle(BuildContext context, String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, AppSpacing.xl, 4, AppSpacing.md),
-        child: Text(text, style: Theme.of(context).textTheme.titleMedium),
-      );
 }

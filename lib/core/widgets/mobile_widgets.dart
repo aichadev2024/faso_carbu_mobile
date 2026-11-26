@@ -5,8 +5,10 @@ import '../session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import 'app_widgets.dart';
+import 'logo.dart';
 import 'ticket_card.dart';
 
+export 'logo.dart' show Logo, LogoMark;
 export 'ticket_card.dart' show TicketCard, TicketData;
 
 /// Logo FasoCarbu : pictogramme + nom.
@@ -17,29 +19,46 @@ class BrandMark extends StatelessWidget {
   final bool showName;
 
   @override
+  Widget build(BuildContext context) => showName ? Logo(size: size, onDark: onDark) : LogoMark(size: size);
+}
+
+/// En-tête sombre aux couleurs de la marque (accueil, connexion).
+class BrandHeader extends StatelessWidget {
+  const BrandHeader({super.key, required this.child, this.padding = const EdgeInsets.fromLTRB(20, 16, 20, 28), this.radius = 28});
+  final Widget child;
+  final EdgeInsets padding;
+  final double radius;
+
+  @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(color: AppColors.brand, borderRadius: BorderRadius.circular(size * 0.28)),
-          child: Icon(Icons.local_gas_station_rounded, color: Colors.white, size: size * 0.58),
-        ),
-        if (showName) ...[
-          SizedBox(width: size * 0.32),
-          Text(
-            'FasoCarbu',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontSize: size * 0.56,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
-                  color: onDark ? Colors.white : null,
-                ),
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: inkGradient,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(radius)),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -70,
+            top: -90,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(colors: [AppColors.brand.withValues(alpha: 0.45), AppColors.brand.withValues(alpha: 0)]),
+              ),
+            ),
           ),
+          const Positioned(
+            right: -24,
+            bottom: -34,
+            child: Opacity(opacity: 0.07, child: LogoMark(size: 150, withBackground: false, color: Colors.white)),
+          ),
+          Padding(padding: padding, child: child),
         ],
-      ],
+      ),
     );
   }
 }

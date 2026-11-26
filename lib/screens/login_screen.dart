@@ -80,72 +80,100 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Form(
-                key: _formKey,
-                child: AutofillGroup(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Align(alignment: Alignment.centerLeft, child: BrandMark(size: 40)),
-                      const SizedBox(height: 48),
-                      Text('Bon retour 👋', style: t.headlineMedium),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text('Connectez-vous pour accéder à vos tickets et à votre station.', style: t.bodyMedium),
-                      const SizedBox(height: AppSpacing.xxl),
-                      if (_error != null) ...[InlineAlert(message: _error!), const SizedBox(height: AppSpacing.lg)],
-                      AppTextField(
-                        label: 'Adresse email',
-                        controller: _email,
-                        hint: 'nom@entreprise.bf',
-                        icon: Icons.mail_outline_rounded,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        validator: (v) => (v == null || !v.contains('@')) ? 'Email invalide' : null,
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      AppTextField(
-                        label: 'Mot de passe',
-                        controller: _password,
-                        icon: Icons.lock_outline_rounded,
-                        obscureText: _obscure,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _login(),
-                        validator: (v) => (v == null || v.isEmpty) ? 'Saisissez votre mot de passe' : null,
-                        suffix: IconButton(
-                          icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 20),
-                          onPressed: () => setState(() => _obscure = !_obscure),
-                        ),
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            BrandHeader(
+              radius: 32,
+              padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top + 28, 24, 44),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Logo(size: 40, onDark: true, tagline: 'Gestion du carburant'),
+                  const SizedBox(height: 40),
+                  Text('Bon retour 👋', style: t.headlineMedium?.copyWith(color: Colors.white, fontSize: 28)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Connectez-vous pour accéder à vos tickets et à votre station.',
+                    style: t.bodyLarge?.copyWith(color: Colors.white.withValues(alpha: 0.7)),
+                  ),
+                ],
+              ),
+            ),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                  child: Form(
+                    key: _formKey,
+                    child: AutofillGroup(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_error != null) ...[InlineAlert(message: _error!), const SizedBox(height: AppSpacing.lg)],
+                          AppTextField(
+                            label: 'Adresse email',
+                            controller: _email,
+                            hint: 'nom@entreprise.bf',
+                            icon: Icons.mail_outline_rounded,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            validator: (v) => (v == null || !v.contains('@')) ? 'Email invalide' : null,
                           ),
-                          child: const Text('Mot de passe oublié ?'),
-                        ),
+                          const SizedBox(height: AppSpacing.lg),
+                          AppTextField(
+                            label: 'Mot de passe',
+                            controller: _password,
+                            icon: Icons.lock_outline_rounded,
+                            obscureText: _obscure,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _login(),
+                            validator: (v) => (v == null || v.isEmpty) ? 'Saisissez votre mot de passe' : null,
+                            suffix: IconButton(
+                              icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 20),
+                              onPressed: () => setState(() => _obscure = !_obscure),
+                            ),
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                              ),
+                              child: const Text('Mot de passe oublié ?'),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          PrimaryButton(label: 'Se connecter', onPressed: _login, loading: _loading, expand: true),
+                          const SizedBox(height: AppSpacing.xl),
+                          Container(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                            ),
+                            child: Row(children: [
+                              Icon(Icons.info_outline_rounded, size: 18, color: t.bodySmall?.color),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: Text(
+                                  'Pas encore de compte ? Demandez-le à votre gestionnaire ou à l\'administrateur de votre station.',
+                                  style: t.bodySmall,
+                                ),
+                              ),
+                            ]),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      PrimaryButton(label: 'Se connecter', onPressed: _login, loading: _loading, expand: true),
-                      const SizedBox(height: AppSpacing.xl),
-                      Text(
-                        'Pas encore de compte ? Demandez-le à votre gestionnaire ou à l\'administrateur de votre station.',
-                        style: t.bodySmall,
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

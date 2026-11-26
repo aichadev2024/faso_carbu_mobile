@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/api.dart';
 import '../core/session.dart';
+import '../core/theme/app_colors.dart';
+import '../core/theme/app_theme.dart';
 import '../core/widgets/mobile_widgets.dart';
 
 /// Démarrage : réveille le backend (hébergement en veille) puis oriente vers
@@ -37,15 +39,48 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(gradient: inkGradient),
+        child: Stack(
+          alignment: Alignment.center,
           children: [
-            const BrandMark(size: 52, showName: false),
-            const SizedBox(height: 20),
-            Text('FasoCarbu', style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 40),
-            const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
+            Positioned(
+              top: -120,
+              right: -100,
+              child: Container(
+                width: 360,
+                height: 360,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(colors: [AppColors.brand.withValues(alpha: 0.45), AppColors.brand.withValues(alpha: 0)]),
+                ),
+              ),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(26), boxShadow: AppShadows.brand()),
+                  child: const LogoMark(size: 96),
+                ),
+                const SizedBox(height: 24),
+                const Logo(size: 40, onDark: true, showName: true),
+                const SizedBox(height: 8),
+                Text(
+                  'Le carburant de votre flotte, sous contrôle',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.65)),
+                ),
+              ],
+            ),
+            const Positioned(
+              bottom: 56,
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+              ),
+            ),
           ],
         ),
       ),

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/session.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_widgets.dart';
+import '../core/widgets/mobile_widgets.dart';
 
 class _Page {
   const _Page(this.icon, this.tone, this.title, this.text);
@@ -57,10 +58,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           padding: const EdgeInsets.all(AppSpacing.xl),
           child: Column(
             children: [
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(onPressed: _finish, child: const Text('Passer')),
-              ),
+              Row(children: [
+                const BrandMark(size: 30),
+                const Spacer(),
+                TextButton(onPressed: _finish, child: const Text('Passer')),
+              ]),
               Expanded(
                 child: PageView.builder(
                   controller: _controller,
@@ -71,16 +73,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     return Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(color: p.tone.softBg(context), shape: BoxShape.circle),
-                          child: Icon(p.icon, size: 52, color: p.tone.fg),
-                        ),
-                        const SizedBox(height: 40),
+                        _Illustration(page: p, index: i),
+                        const SizedBox(height: 44),
                         Text(p.title, style: t.headlineMedium, textAlign: TextAlign.center),
                         const SizedBox(height: AppSpacing.md),
-                        Text(p.text, style: t.bodyLarge?.copyWith(color: t.bodyMedium?.color), textAlign: TextAlign.center),
+                        Text(p.text, style: t.bodyLarge?.copyWith(color: t.bodyMedium?.color, height: 1.45), textAlign: TextAlign.center),
                       ],
                     );
                   },
@@ -113,6 +110,70 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Visuel de chaque page : un aperçu de l'appli sur fond de marque.
+class _Illustration extends StatelessWidget {
+  const _Illustration({required this.page, required this.index});
+  final _Page page;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget visuel;
+    if (index == 0) {
+      visuel = SizedBox(
+        width: 290,
+        child: TicketCard(
+          compact: true,
+          data: TicketData(
+            id: '42',
+            statut: 'EN_ATTENTE',
+            quantite: 40,
+            montant: 32800,
+            carburant: 'Gasoil',
+            station: 'Station partenaire',
+            dateEmission: DateTime.now(),
+          ),
+        ),
+      );
+    } else {
+      visuel = Container(
+        width: 150,
+        height: 150,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [page.tone.fg, Color.lerp(page.tone.fg, Colors.white, 0.3)!],
+          ),
+          borderRadius: BorderRadius.circular(40),
+          boxShadow: [BoxShadow(color: page.tone.fg.withValues(alpha: 0.35), blurRadius: 30, offset: const Offset(0, 14))],
+        ),
+        child: Icon(page.icon, size: 72, color: Colors.white),
+      );
+    }
+    return SizedBox(
+      width: 300,
+      height: 300,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 300,
+            height: 300,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: page.tone.fg.withValues(alpha: 0.06)),
+          ),
+          Container(
+            width: 220,
+            height: 220,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: page.tone.fg.withValues(alpha: 0.08)),
+          ),
+          Transform.rotate(angle: index == 0 ? -0.06 : 0, child: visuel),
+        ],
       ),
     );
   }
