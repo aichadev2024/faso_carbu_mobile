@@ -182,7 +182,24 @@ class _ConfirmSheetState extends State<_ConfirmSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Vérifiez le ticket', style: t.headlineSmall),
+            Row(children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Tone.success.softBg(context),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(Icons.verified_rounded, color: Tone.success.fg),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Ticket reconnu', style: t.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                  Text('Vérifiez les informations avant de valider le plein.', style: t.bodySmall),
+                ]),
+              ),
+            ]),
             const SizedBox(height: AppSpacing.lg),
             Center(child: Text('${d['quantite'] ?? '—'} L', style: t.displaySmall)),
             Center(child: Text('${d['carburant'] ?? ''} · ${formatNumber(montant)} FCFA', style: t.bodyLarge)),

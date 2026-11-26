@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../core/api.dart';
 import '../core/config/app_config.dart';
 import '../core/session.dart';
+import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_widgets.dart';
 import '../core/widgets/mobile_widgets.dart';
@@ -66,72 +67,137 @@ class _ProfilScreenState extends State<ProfilScreen> {
     }
   }
 
+  Widget _tile(IconData icon, String title, {String? subtitle, Tone tone = Tone.neutral, VoidCallback? onTap, bool danger = false}) {
+    final t = Theme.of(context).textTheme;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 2),
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(color: tone.softBg(context), borderRadius: BorderRadius.circular(AppRadius.md)),
+        child: Icon(icon, size: 19, color: tone.fg),
+      ),
+      title: Text(title, style: t.titleSmall?.copyWith(color: danger ? Tone.danger.fg : null)),
+      subtitle: subtitle == null ? null : Text(subtitle, style: t.bodySmall),
+      trailing: danger ? null : Icon(Icons.chevron_right_rounded, color: t.bodySmall?.color),
+      onTap: onTap,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final entreprise = _user['entreprise'] is Map ? (_user['entreprise'] as Map)['nom']?.toString() : null;
+    Widget section(String text) => Padding(
+      padding: const EdgeInsets.fromLTRB(4, AppSpacing.xl, 4, AppSpacing.sm),
+      child: Text(text.toUpperCase(), style: t.labelSmall?.copyWith(letterSpacing: 1.1)),
+    );
     return Scaffold(
-      appBar: AppBar(title: const Text('Profil')),
-      body: RefreshableList(
+      body: RefreshIndicator(
         onRefresh: _load,
-        children: [
-          Center(
-            child: Stack(children: [
-              InitialsAvatar(name: Session.fullName, size: 96, imageUrl: _photoUrl),
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: Material(
-                  color: Theme.of(context).colorScheme.primary,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: _uploading ? null : _changePhoto,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: _uploading
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.photo_camera_outlined, size: 16, color: Colors.white),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 96),
+          children: [
+            BrandHeader(
+              padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 20, 20, 28),
+              child: SizedBox(
+                width: double.infinity,
+                child: Column(
+                  children: [
+                    Stack(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2),
+                          ),
+                          child: InitialsAvatar(name: Session.fullName, size: 92, imageUrl: _photoUrl),
+                        ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Material(
+                            color: Theme.of(context).colorScheme.primary,
+                            shape: const CircleBorder(side: BorderSide(color: Colors.white, width: 2)),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: _uploading ? null : _changePhoto,
+                              child: Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: _uploading
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : const Icon(Icons.photo_camera_outlined, size: 16, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      Session.fullName,
+                      style: t.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(color: AppColors.brand.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(999)),
+                      child: Text(Session.roleLabel, style: t.labelMedium?.copyWith(color: const Color(0xFFFDBA74))),
+                    ),
+                  ],
                 ),
               ),
-            ]),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Center(child: Text(Session.fullName, style: t.headlineSmall)),
-          const SizedBox(height: AppSpacing.xs),
-          Center(child: StatusBadge(label: Session.roleLabel, tone: Tone.brand)),
-          const SizedBox(height: AppSpacing.xl),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
-              child: Column(children: [
-                KeyValueRow(icon: Icons.mail_outline_rounded, label: 'Email', value: Session.email),
-                KeyValueRow(icon: Icons.phone_outlined, label: 'Téléphone', value: '${_user['telephone'] ?? ''}'),
-                KeyValueRow(icon: Icons.business_outlined, label: 'Entreprise', value: entreprise ?? ''),
-              ]),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: Column(children: [
-              ListTile(
-                leading: const Icon(Icons.lock_reset_rounded),
-                title: const Text('Changer le mot de passe'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangePasswordScreen())),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  section('Informations'),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xs),
+                      child: Column(
+                        children: [
+                          KeyValueRow(icon: Icons.mail_outline_rounded, label: 'Email', value: Session.email),
+                          const Divider(),
+                          KeyValueRow(icon: Icons.phone_outlined, label: 'Téléphone', value: '${_user['telephone'] ?? ''}'),
+                          const Divider(),
+                          KeyValueRow(icon: Icons.business_outlined, label: 'Entreprise', value: entreprise ?? ''),
+                        ],
+                      ),
+                    ),
+                  ),
+                  section('Compte'),
+                  Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        _tile(
+                          Icons.lock_reset_rounded,
+                          'Changer le mot de passe',
+                          subtitle: 'Conseillé régulièrement',
+                          tone: Tone.brand,
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangePasswordScreen())),
+                        ),
+                        const Divider(indent: 70),
+                        _tile(Icons.logout_rounded, 'Se déconnecter', tone: Tone.danger, danger: true, onTap: () => logout(context)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  Center(child: Opacity(opacity: 0.6, child: BrandMark(size: 22))),
+                ],
               ),
-              const Divider(indent: 56),
-              ListTile(
-                leading: Icon(Icons.logout_rounded, color: Tone.danger.fg),
-                title: Text('Se déconnecter', style: TextStyle(color: Tone.danger.fg)),
-                onTap: () => logout(context),
-              ),
-            ]),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

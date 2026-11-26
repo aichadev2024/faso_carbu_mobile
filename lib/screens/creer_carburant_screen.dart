@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_widgets.dart';
+import '../core/widgets/mobile_widgets.dart';
 
 class CreerCarburantScreen extends StatefulWidget {
   const CreerCarburantScreen({super.key, required this.token, required this.adminStationId});
@@ -62,6 +63,11 @@ class _CreerCarburantScreenState extends State<CreerCarburantScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const FormIntro(
+                  icon: Icons.water_drop_rounded,
+                  title: 'Nouveau carburant',
+                  text: 'Le prix au litre sert à calculer le montant des tickets dans votre station.',
+                ),
                 if (_error != null) ...[InlineAlert(message: _error!), const SizedBox(height: AppSpacing.lg)],
                 AppTextField(label: 'Nom', controller: _nom, required: true, icon: Icons.local_gas_station_outlined),
                 const SizedBox(height: AppSpacing.sm),

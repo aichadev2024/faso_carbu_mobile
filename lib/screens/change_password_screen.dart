@@ -4,6 +4,7 @@ import '../core/api.dart';
 import '../core/session.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_widgets.dart';
+import '../core/widgets/mobile_widgets.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -63,9 +64,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Au moins 8 caractères, avec des lettres et des chiffres.',
-                    style: Theme.of(context).textTheme.bodyMedium),
-                const SizedBox(height: AppSpacing.xl),
+                const FormIntro(
+                  icon: Icons.lock_reset_rounded,
+                  title: 'Nouveau mot de passe',
+                  text: 'Au moins 8 caractères, avec des lettres et des chiffres.',
+                ),
                 if (_error != null) ...[InlineAlert(message: _error!), const SizedBox(height: AppSpacing.lg)],
                 AppTextField(
                   label: 'Mot de passe actuel',

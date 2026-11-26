@@ -82,26 +82,51 @@ class _AgentsListScreenState extends State<AgentsListScreen> {
                     title: 'Aucun agent',
                     message: 'Ajoutez les pompistes qui scanneront les tickets dans votre station.',
                   )
-                else
-                  Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(children: [
-                      for (var i = 0; i < _agents.length; i++) ...[
-                        if (i > 0) const Divider(indent: 72),
-                        ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 4),
-                          leading: InitialsAvatar(name: '${_agents[i]['prenom'] ?? ''} ${_agents[i]['nom'] ?? ''}', size: 40),
-                          title: Text('${_agents[i]['prenom'] ?? ''} ${_agents[i]['nom'] ?? ''}', style: t.titleSmall),
-                          subtitle: Text('${_agents[i]['telephone'] ?? _agents[i]['email'] ?? ''}'),
-                          trailing: IconButton(
+                else ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, AppSpacing.md),
+                    child: Text(
+                      '${_agents.length} agent${_agents.length > 1 ? 's' : ''} dans votre station',
+                      style: t.bodyMedium,
+                    ),
+                  ),
+                  for (final a in _agents) ...[
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 14, 4, 14),
+                        child: Row(children: [
+                          InitialsAvatar(name: '${a['prenom'] ?? ''} ${a['nom'] ?? ''}', size: 46),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text('${a['prenom'] ?? ''} ${a['nom'] ?? ''}'.trim(), style: t.titleMedium),
+                              const SizedBox(height: 2),
+                              Row(children: [
+                                Icon(Icons.phone_outlined, size: 14, color: t.bodySmall?.color),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    '${a['telephone'] ?? ''}'.isEmpty ? '${a['email'] ?? ''}' : '${a['telephone']}',
+                                    style: t.bodySmall,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ]),
+                              const SizedBox(height: 6),
+                              const StatusBadge(label: 'Agent de station', tone: Tone.success),
+                            ]),
+                          ),
+                          IconButton(
                             tooltip: 'Supprimer',
                             icon: Icon(Icons.delete_outline_rounded, color: Tone.danger.fg),
-                            onPressed: () => _delete(_agents[i]),
+                            onPressed: () => _delete(a),
                           ),
-                        ),
-                      ],
-                    ]),
-                  ),
+                        ]),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                ],
               ],
             ),
     );

@@ -63,6 +63,43 @@ class BrandHeader extends StatelessWidget {
   }
 }
 
+/// En-tête des formulaires : pictogramme, titre et explication.
+class FormIntro extends StatelessWidget {
+  const FormIntro({super.key, required this.icon, required this.title, required this.text});
+  final IconData icon;
+  final String title;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.xl),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: Tone.brand.softBg(context),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(gradient: brandGradient, borderRadius: BorderRadius.circular(AppRadius.md)),
+          child: Icon(icon, color: Colors.white, size: 22),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text(text, style: t.bodyMedium),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
 /// Liste défilante standard des écrans de l'appli, avec tirer-pour-rafraîchir.
 class RefreshableList extends StatelessWidget {
   const RefreshableList({super.key, required this.onRefresh, required this.children});
