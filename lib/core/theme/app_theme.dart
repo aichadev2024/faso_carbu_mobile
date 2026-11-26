@@ -17,10 +17,42 @@ class AppSpacing {
 
 class AppRadius {
   AppRadius._();
-  static const double sm = 6;
-  static const double md = 10;
-  static const double lg = 14;
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 22;
 }
+
+/// Ombres douces communes (mode clair uniquement : en sombre, les bordures
+/// suffisent).
+class AppShadows {
+  AppShadows._();
+  static List<BoxShadow> soft(BuildContext context) => Theme.of(context).brightness == Brightness.dark
+      ? const []
+      : [
+          BoxShadow(color: const Color(0xFF18181B).withValues(alpha: 0.04), blurRadius: 2, offset: const Offset(0, 1)),
+          BoxShadow(color: const Color(0xFF18181B).withValues(alpha: 0.05), blurRadius: 16, offset: const Offset(0, 6)),
+        ];
+
+  static List<BoxShadow> brand() => [
+        BoxShadow(color: const Color(0xFFEA580C).withValues(alpha: 0.28), blurRadius: 24, offset: const Offset(0, 10)),
+      ];
+}
+
+/// Dégradé de marque (orange -> ambre), utilisé pour les en-têtes et le logo.
+const brandGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFFEA580C), Color(0xFFF59E0B)],
+);
+
+/// Dégradé sombre des panneaux de marque (connexion, en-têtes mobiles).
+const inkGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF1C1917), Color(0xFF292524), Color(0xFF431407)],
+  stops: [0, 0.55, 1],
+);
 
 class AppTheme {
   AppTheme._();
@@ -68,8 +100,8 @@ class AppTheme {
       isDark ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
     );
     final text = base.copyWith(
-      displaySmall: base.displaySmall?.copyWith(fontSize: 30, fontWeight: FontWeight.w700, color: textPrimary, letterSpacing: -0.6),
-      headlineMedium: base.headlineMedium?.copyWith(fontSize: 24, fontWeight: FontWeight.w700, color: textPrimary, letterSpacing: -0.4),
+      displaySmall: base.displaySmall?.copyWith(fontSize: 30, fontWeight: FontWeight.w800, color: textPrimary, letterSpacing: -0.8),
+      headlineMedium: base.headlineMedium?.copyWith(fontSize: 26, fontWeight: FontWeight.w800, color: textPrimary, letterSpacing: -0.6),
       headlineSmall: base.headlineSmall?.copyWith(fontSize: 20, fontWeight: FontWeight.w600, color: textPrimary, letterSpacing: -0.2),
       titleLarge: base.titleLarge?.copyWith(fontSize: 17, fontWeight: FontWeight.w600, color: textPrimary),
       titleMedium: base.titleMedium?.copyWith(fontSize: 15, fontWeight: FontWeight.w600, color: textPrimary),
@@ -112,7 +144,8 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: surface,
-        elevation: 0,
+        elevation: isDark ? 0 : 1.5,
+        shadowColor: const Color(0xFF18181B).withValues(alpha: 0.10),
         margin: EdgeInsets.zero,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
@@ -220,6 +253,23 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
           side: BorderSide(color: border),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        height: 68,
+        elevation: 0,
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: isDark ? const Color(0xFF3A2112) : AppColors.brandSoft,
+        indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+        iconTheme: WidgetStateProperty.resolveWith(
+          (s) => IconThemeData(color: s.contains(WidgetState.selected) ? brand : textMuted, size: 24),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (s) => text.labelMedium?.copyWith(
+            color: s.contains(WidgetState.selected) ? brand : textMuted,
+            fontWeight: s.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
+          ),
         ),
       ),
       listTileTheme: ListTileThemeData(

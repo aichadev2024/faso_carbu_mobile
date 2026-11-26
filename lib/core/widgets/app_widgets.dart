@@ -65,11 +65,14 @@ extension ToneColors on Tone {
 // ---------------------------------------------------------------------------
 
 class PageHeader extends StatelessWidget {
-  const PageHeader({super.key, required this.title, this.subtitle, this.actions = const []});
+  const PageHeader({super.key, required this.title, this.subtitle, this.actions = const [], this.eyebrow});
 
   final String title;
   final String? subtitle;
   final List<Widget> actions;
+
+  /// Petit libellé au-dessus du titre (rubrique, fil d'Ariane).
+  final String? eyebrow;
 
   @override
   Widget build(BuildContext context) {
@@ -78,9 +81,16 @@ class PageHeader extends StatelessWidget {
     final heading = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (eyebrow != null) ...[
+          Text(
+            eyebrow!.toUpperCase(),
+            style: t.labelSmall?.copyWith(color: Theme.of(context).colorScheme.primary, letterSpacing: 1.2),
+          ),
+          const SizedBox(height: 6),
+        ],
         Text(title, style: t.headlineMedium),
         if (subtitle != null) ...[
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: 6),
           Text(subtitle!, style: t.bodyMedium),
         ],
       ],
@@ -143,7 +153,7 @@ class AppCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (title != null) Text(title!, style: t.titleMedium),
+                        if (title != null) Text(title!, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                         if (subtitle != null) ...[
                           const SizedBox(height: 2),
                           Text(subtitle!, style: t.bodySmall),
@@ -188,36 +198,57 @@ class StatCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label, style: t.labelMedium),
+        child: Stack(
+          children: [
+            // Halo coloré discret dans le coin, pour donner du relief.
+            Positioned(
+              right: -28,
+              top: -28,
+              child: Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: tone.fg.withValues(alpha: 0.07)),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.xl - 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [tone.fg, Color.lerp(tone.fg, Colors.white, 0.28)!],
+                        ),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        boxShadow: [BoxShadow(color: tone.fg.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 4))],
+                      ),
+                      child: Icon(icon, size: 21, color: Colors.white),
+                    ),
+                    const Spacer(),
+                    if (onTap != null) Icon(Icons.arrow_outward_rounded, size: 18, color: t.bodySmall?.color),
+                  ]),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(value, style: t.displaySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 2),
+                  Text(label, style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                  if (hint != null) ...[
                     const SizedBox(height: AppSpacing.sm),
-                    Text(value, style: t.displaySmall),
-                    if (hint != null) ...[
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(hint!, style: t.bodySmall),
-                    ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: tone.softBg(context), borderRadius: BorderRadius.circular(999)),
+                      child: Text(hint!, style: t.labelMedium?.copyWith(color: tone.fg, fontWeight: FontWeight.w600)),
+                    ),
                   ],
-                ),
+                ],
               ),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: tone.softBg(context),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
-                child: Icon(icon, size: 20, color: tone.fg),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -370,30 +401,36 @@ class EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final brand = Theme.of(context).colorScheme.primary;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 56, horizontal: AppSpacing.xl),
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: AppSpacing.xl),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
+          constraints: const BoxConstraints(maxWidth: 380),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Pictogramme dans des cercles concentriques aux couleurs de la marque.
               Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Tone.neutral.softBg(context),
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: brand.withValues(alpha: 0.06)),
+                alignment: Alignment.center,
+                child: Container(
+                  width: 66,
+                  height: 66,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: brand.withValues(alpha: 0.12)),
+                  alignment: Alignment.center,
+                  child: Icon(icon, size: 28, color: brand),
                 ),
-                child: Icon(icon, color: t.bodySmall?.color),
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(title, style: t.titleMedium, textAlign: TextAlign.center),
               if (message != null) ...[
-                const SizedBox(height: AppSpacing.xs),
+                const SizedBox(height: 6),
                 Text(message!, style: t.bodyMedium, textAlign: TextAlign.center),
               ],
-              if (action != null) ...[const SizedBox(height: AppSpacing.lg), action!],
+              if (action != null) ...[const SizedBox(height: AppSpacing.xl), action!],
             ],
           ),
         ),

@@ -4,6 +4,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import 'app_widgets.dart';
+import 'logo.dart';
 
 // Fichier identique dans faso_carbu_web et faso_carbu_mobile.
 
@@ -201,7 +202,7 @@ class _Header extends StatelessWidget {
           Positioned(
             right: -14,
             top: compact ? -22 : -26,
-            child: Icon(Icons.local_gas_station_rounded, size: compact ? 76 : 104, color: Colors.white.withValues(alpha: 0.12)),
+            child: Opacity(opacity: 0.14, child: LogoMark(size: compact ? 76 : 104, withBackground: false, color: Colors.white)),
           ),
           Row(
             children: [
@@ -209,7 +210,8 @@ class _Header extends StatelessWidget {
                 width: compact ? 28 : 34,
                 height: compact ? 28 : 34,
                 decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(9)),
-                child: Icon(Icons.local_gas_station_rounded, color: Colors.white, size: compact ? 17 : 20),
+                alignment: Alignment.center,
+                child: LogoMark(size: compact ? 20 : 24, withBackground: false, color: Colors.white),
               ),
               const SizedBox(width: 10),
               Expanded(
