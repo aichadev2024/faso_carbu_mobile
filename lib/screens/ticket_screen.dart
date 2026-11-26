@@ -103,7 +103,7 @@ class TicketListBody extends StatelessWidget {
               showBeneficiaire: showBeneficiaire,
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TicketDetailScreen(ticket: t))),
             ),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.md),
           ],
       ],
     );
