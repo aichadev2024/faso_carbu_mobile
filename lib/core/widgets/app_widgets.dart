@@ -234,7 +234,12 @@ class StatCard extends StatelessWidget {
                     if (onTap != null) Icon(Icons.arrow_outward_rounded, size: 18, color: t.bodySmall?.color),
                   ]),
                   const SizedBox(height: AppSpacing.lg),
-                  Text(value, style: t.displaySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  // Les grands montants (9 000 000) rétrécissent au lieu d'être coupés.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(value, style: t.displaySmall, maxLines: 1),
+                  ),
                   const SizedBox(height: 2),
                   Text(label, style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
                   if (hint != null) ...[
