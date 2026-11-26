@@ -5,6 +5,9 @@ import '../session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import 'app_widgets.dart';
+import 'ticket_card.dart';
+
+export 'ticket_card.dart' show TicketCard, TicketData;
 
 /// Logo FasoCarbu : pictogramme + nom.
 class BrandMark extends StatelessWidget {
@@ -159,53 +162,11 @@ class TicketTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final qte = double.tryParse('${ticket['quantite'] ?? 0}') ?? 0;
-    final somme = double.tryParse('${ticket['somme'] ?? ticket['montant'] ?? 0}') ?? 0;
-    final date = DateTime.tryParse('${ticket['dateValidation'] ?? ticket['dateEmission'] ?? ''}');
-    final beneficiaire = '${ticket['utilisateurPrenom'] ?? ''} ${ticket['utilisateurNom'] ?? ''}'.trim();
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Text('Ticket #${ticket['id'] ?? '—'}', style: t.labelMedium),
-                const Spacer(),
-                StatusBadge.fromStatus(ticket['statut']?.toString()),
-              ]),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${formatNumber(qte)} L · ${ticket['carburantNom'] ?? 'Carburant'}', style: t.titleMedium),
-                        const SizedBox(height: 2),
-                        Text(
-                          [
-                            if (showBeneficiaire && beneficiaire.isNotEmpty) beneficiaire,
-                            if ((ticket['stationNom'] ?? '').toString().isNotEmpty) ticket['stationNom'].toString(),
-                            formatDate(date),
-                          ].join(' · '),
-                          style: t.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text('${formatNumber(somme)} F', style: t.titleMedium),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    return TicketCard(
+      data: TicketData.fromMap(ticket),
+      compact: true,
+      showBeneficiaire: showBeneficiaire,
+      onTap: onTap,
     );
   }
 }
