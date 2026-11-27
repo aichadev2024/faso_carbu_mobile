@@ -105,25 +105,32 @@ class _CarburantsListScreenState extends State<CarburantsListScreen> {
                           padding: const EdgeInsets.all(AppSpacing.lg),
                           child: Row(children: [
                             Container(
-                              width: 44,
-                              height: 44,
+                              width: 48,
+                              height: 48,
                               decoration: BoxDecoration(
-                                color: Tone.brand.softBg(context),
+                                gradient: brandGradient,
                                 borderRadius: BorderRadius.circular(AppRadius.md),
+                                boxShadow: AppShadows.brand(),
                               ),
-                              child: Icon(Icons.local_gas_station_rounded, color: Tone.brand.fg),
+                              child: const Icon(Icons.water_drop_rounded, color: Colors.white),
                             ),
                             const SizedBox(width: AppSpacing.lg),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('${c['nom']}', style: t.titleMedium),
-                                  Text('Prix au litre', style: t.bodySmall),
+                                  Text('${c['nom']}', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                                  Text('Modifier le prix', style: t.bodySmall),
                                 ],
                               ),
                             ),
-                            Text('${formatNumber(double.tryParse('${c['prix'] ?? 0}'))} F/L', style: t.titleMedium),
+                            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                              Text(
+                                formatNumber(double.tryParse('${c['prix'] ?? 0}')),
+                                style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.primary),
+                              ),
+                              Text('FCFA / litre', style: t.bodySmall),
+                            ]),
                             PopupMenuButton<String>(
                               onSelected: (v) => v == 'edit' ? _edit(c) : _delete(c),
                               itemBuilder: (_) => [

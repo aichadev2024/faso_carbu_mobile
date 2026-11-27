@@ -83,11 +83,27 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         if (i > 0) const Divider(indent: 60),
                         ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 6),
-                          leading: CircleAvatar(
-                            backgroundColor: (_items[i].lu ? Tone.neutral : Tone.brand).softBg(context),
-                            child: Icon(Icons.notifications_rounded,
-                                size: 20, color: (_items[i].lu ? Tone.neutral : Tone.brand).fg),
+                          leading: Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              gradient: _items[i].lu ? null : brandGradient,
+                              color: _items[i].lu ? Tone.neutral.softBg(context) : null,
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                            ),
+                            child: Icon(
+                              _items[i].lu ? Icons.notifications_none_rounded : Icons.notifications_active_rounded,
+                              size: 20,
+                              color: _items[i].lu ? Tone.neutral.fg : Colors.white,
+                            ),
                           ),
+                          trailing: _items[i].lu
+                              ? null
+                              : Container(
+                                  width: 9,
+                                  height: 9,
+                                  decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, shape: BoxShape.circle),
+                                ),
                           title: Text(
                             _items[i].titre,
                             style: t.titleSmall?.copyWith(fontWeight: _items[i].lu ? FontWeight.w500 : FontWeight.w700),

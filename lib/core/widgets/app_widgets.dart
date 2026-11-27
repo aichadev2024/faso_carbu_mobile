@@ -65,7 +65,7 @@ extension ToneColors on Tone {
 // ---------------------------------------------------------------------------
 
 class PageHeader extends StatelessWidget {
-  const PageHeader({super.key, required this.title, this.subtitle, this.actions = const [], this.eyebrow});
+  const PageHeader({super.key, required this.title, this.subtitle, this.actions = const [], this.eyebrow, this.icon});
 
   final String title;
   final String? subtitle;
@@ -74,11 +74,14 @@ class PageHeader extends StatelessWidget {
   /// Petit libellé au-dessus du titre (rubrique, fil d'Ariane).
   final String? eyebrow;
 
+  /// Pictogramme de la page, dans une tuile aux couleurs de la marque.
+  final IconData? icon;
+
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final narrow = MediaQuery.sizeOf(context).width < 640;
-    final heading = Column(
+    Widget heading = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (eyebrow != null) ...[
@@ -95,6 +98,29 @@ class PageHeader extends StatelessWidget {
         ],
       ],
     );
+    if (icon != null) {
+      heading = Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFEA580C), Color(0xFFF59E0B)],
+              ),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              boxShadow: [BoxShadow(color: AppColors.brand.withValues(alpha: 0.25), blurRadius: 16, offset: const Offset(0, 6))],
+            ),
+            child: Icon(icon, color: Colors.white, size: 26),
+          ),
+          const SizedBox(width: AppSpacing.lg),
+          Flexible(child: heading),
+        ],
+      );
+    }
     final actionRow = Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: actions);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xl),
@@ -107,7 +133,7 @@ class PageHeader extends StatelessWidget {
               ],
             )
           : Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [Expanded(child: heading), actionRow],
             ),
     );
@@ -234,7 +260,12 @@ class StatCard extends StatelessWidget {
                     if (onTap != null) Icon(Icons.arrow_outward_rounded, size: 18, color: t.bodySmall?.color),
                   ]),
                   const SizedBox(height: AppSpacing.lg),
-                  Text(value, style: t.displaySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  // Les grands montants (9 000 000) rétrécissent au lieu d'être coupés.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(value, style: t.displaySmall, maxLines: 1),
+                  ),
                   const SizedBox(height: 2),
                   Text(label, style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
                   if (hint != null) ...[
@@ -500,7 +531,7 @@ class InlineAlert extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class SearchField extends StatelessWidget {
-  const SearchField({super.key, this.hint = 'Rechercher…', this.onChanged, this.controller, this.width = 280});
+  const SearchField({super.key, this.hint = 'Rechercher…', this.onChanged, this.controller, this.width = 300});
   final String hint;
   final ValueChanged<String>? onChanged;
   final TextEditingController? controller;
@@ -508,6 +539,10 @@ class SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(999),
+      borderSide: BorderSide(color: Theme.of(context).dividerColor),
+    );
     return SizedBox(
       width: width,
       child: TextField(
@@ -516,7 +551,83 @@ class SearchField extends StatelessWidget {
         decoration: InputDecoration(
           hintText: hint,
           prefixIcon: const Icon(Icons.search_rounded, size: 20),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          border: border,
+          enabledBorder: border,
+          focusedBorder: border.copyWith(borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5)),
         ),
+      ),
+    );
+  }
+}
+
+/// Filtres en pastilles (segments) avec compteur : « Toutes 12 · En attente 3 ».
+class FilterPills<T> extends StatelessWidget {
+  const FilterPills({super.key, required this.options, required this.selected, required this.onChanged});
+
+  /// (valeur, libellé, compteur facultatif)
+  final List<(T, String, int?)> options;
+  final T selected;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final t = theme.textTheme;
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final o in options)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 1),
+              child: Material(
+                color: o.$1 == selected ? theme.colorScheme.surface : Colors.transparent,
+                elevation: o.$1 == selected && theme.brightness == Brightness.light ? 1 : 0,
+                shadowColor: Colors.black.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: () => onChanged(o.$1),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(
+                        o.$2,
+                        style: t.labelLarge?.copyWith(
+                          fontSize: 13,
+                          color: o.$1 == selected ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+                          fontWeight: o.$1 == selected ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                      if (o.$3 != null) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: o.$1 == selected ? theme.colorScheme.primary : theme.dividerColor,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '${o.$3}',
+                            style: t.labelSmall?.copyWith(
+                              color: o.$1 == selected ? Colors.white : theme.colorScheme.onSurfaceVariant,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -692,34 +803,85 @@ class PrimaryButton extends StatelessWidget {
   }
 }
 
-/// Mise en page des formulaires : carte centrée à largeur maximale.
+/// Mise en page des formulaires : carte à largeur maximale, avec un en-tête
+/// facultatif (pictogramme, titre, description) et un pied pour les actions.
 class FormLayout extends StatelessWidget {
-  const FormLayout({super.key, required this.children, this.maxWidth = 760, this.footer});
+  const FormLayout({
+    super.key,
+    required this.children,
+    this.maxWidth = 760,
+    this.footer,
+    this.title,
+    this.subtitle,
+    this.icon,
+  });
   final List<Widget> children;
   final double maxWidth;
   final Widget? footer;
+  final String? title;
+  final String? subtitle;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final t = theme.textTheme;
+    final hasHeader = title != null;
     return Align(
       alignment: Alignment.topLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),
         child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ..._spaced(children),
-                if (footer != null) ...[
-                  const SizedBox(height: AppSpacing.xl),
-                  const Divider(),
-                  const SizedBox(height: AppSpacing.lg),
-                  footer!,
-                ],
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (hasHeader) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 24, 28, 20),
+                  child: Row(children: [
+                    if (icon != null) ...[
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Tone.brand.softBg(context),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                        ),
+                        child: Icon(icon, size: 20, color: theme.colorScheme.primary),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                    ],
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(title!, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 2),
+                          Text(subtitle!, style: t.bodySmall),
+                        ],
+                      ]),
+                    ),
+                  ]),
+                ),
+                const Divider(),
               ],
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: _spaced(children),
+                ),
+              ),
+              if (footer != null)
+                Container(
+                  padding: const EdgeInsets.fromLTRB(28, 16, 28, 16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
+                    border: Border(top: BorderSide(color: theme.dividerColor)),
+                  ),
+                  child: footer!,
+                ),
+            ],
           ),
         ),
       ),
@@ -732,6 +894,42 @@ class FormLayout extends StatelessWidget {
           items[i],
         ],
       ];
+}
+
+/// Groupe de champs titré à l'intérieur d'un formulaire.
+class FormSection extends StatelessWidget {
+  const FormSection({super.key, required this.title, required this.children, this.description});
+  final String title;
+  final String? description;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(children: [
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(2)),
+          ),
+          const SizedBox(width: 8),
+          Text(title.toUpperCase(), style: t.labelSmall?.copyWith(letterSpacing: 1.1, color: t.titleSmall?.color)),
+        ]),
+        if (description != null) ...[
+          const SizedBox(height: 4),
+          Text(description!, style: t.bodySmall),
+        ],
+        const SizedBox(height: AppSpacing.md),
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0) const SizedBox(height: AppSpacing.lg),
+          children[i],
+        ],
+      ],
+    );
+  }
 }
 
 /// Deux champs côte à côte sur grand écran, empilés sur mobile.
@@ -771,6 +969,7 @@ class AppDataTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return LayoutBuilder(builder: (context, c) {
       return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -779,7 +978,16 @@ class AppDataTable extends StatelessWidget {
           child: DataTable(
             columns: columns,
             rows: rows,
-            headingRowColor: WidgetStatePropertyAll(Theme.of(context).colorScheme.surfaceContainerHigh),
+            showCheckboxColumn: false,
+            headingRowHeight: 46,
+            dataRowMinHeight: 60,
+            dataRowMaxHeight: 68,
+            horizontalMargin: AppSpacing.xl,
+            headingTextStyle: theme.textTheme.labelSmall?.copyWith(letterSpacing: 0.8),
+            headingRowColor: WidgetStatePropertyAll(theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.7)),
+            dataRowColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered) ? theme.colorScheme.primary.withValues(alpha: 0.04) : null,
+            ),
           ),
         ),
       );

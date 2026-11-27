@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_widgets.dart';
+import '../core/widgets/mobile_widgets.dart';
 
 class CreerAgentScreen extends StatefulWidget {
   const CreerAgentScreen({super.key, required this.token, required this.adminStationId});
@@ -69,9 +70,11 @@ class _CreerAgentScreenState extends State<CreerAgentScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('L\'agent se connectera à l\'appli avec cet email et ce mot de passe.',
-                    style: Theme.of(context).textTheme.bodyMedium),
-                const SizedBox(height: AppSpacing.xl),
+                const FormIntro(
+                  icon: Icons.person_add_alt_1_rounded,
+                  title: 'Nouvel agent de station',
+                  text: 'L\'agent se connectera à l\'appli avec cet email et ce mot de passe.',
+                ),
                 if (_error != null) ...[InlineAlert(message: _error!), gap],
                 AppTextField(label: 'Prénom', controller: _prenom, required: true, icon: Icons.person_outline_rounded),
                 gap,
